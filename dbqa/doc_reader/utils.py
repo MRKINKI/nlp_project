@@ -9,7 +9,7 @@ import pandas as pd
 import argparse
 import collections
 from concurrent.futures import ProcessPoolExecutor
-from drqa1.utils import str2bool
+from .drqa.utils import str2bool
 import logging
 import pymongo
 from collections import Counter
