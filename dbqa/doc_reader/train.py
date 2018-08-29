@@ -12,9 +12,9 @@ import torch
 import msgpack
 import pandas as pd
 import numpy as np
-from drqa1.model import DocReaderModel
-from drqa1.utils import str2bool
-from utils import _normalize_answer,_exact_match,_f1_score,score,BatchGen
+from .drqa.model import DocReaderModel
+from .drqa.utils import str2bool
+from .utils import _normalize_answer,_exact_match,_f1_score,score,BatchGen
 
 parser = argparse.ArgumentParser(
     description='start training'
