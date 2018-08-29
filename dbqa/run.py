@@ -6,6 +6,7 @@ import pickle
 import logging
 from dataset import BRCDataset
 from vocab import Vocab
+from doc_reader import train as drqa_train
 
 class args:
     max_p_num = 1
