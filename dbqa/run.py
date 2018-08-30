@@ -8,6 +8,7 @@ from dataset import BRCDataset
 from vocab import Vocab
 from doc_reader import train as drqa_train
 
+
 class args:
     max_p_num = 1
     max_p_len = 500
@@ -19,11 +20,11 @@ class args:
     embedding_path = './data/embedding/sogou2012.emb'
     vocab_dir = './data/cetc/'
     batch_size = 32
+    log_path = False
+    train = True
+
 
 def prepare(args):
-    """
-    checks data, creates the directories, prepare the vocabulary and embeddings
-    """
 
     brc_data = BRCDataset(args.max_p_num, args.max_p_len, args.max_q_len,
                           args.train_files, args.dev_files, args.test_files)
@@ -51,7 +52,7 @@ def train(args):
     """
     trains the reading comprehension model
     """
-    logger = logging.getLogger("brc")
+    logger = logging.getLogger("rc")
     logger.info('Load data_set and vocab...')
     with open(os.path.join(args.vocab_dir, 'vocab.data'), 'rb') as fin:
         vocab = pickle.load(fin)
@@ -62,6 +63,7 @@ def train(args):
     logger.info('Initialize the model...')
     train_batches = brc_data.gen_mini_batches('train', args.batch_size, shuffle=True)
     for batch in train_batches:
+        # print(batch)
         break
     return batch
 #    rc_model = RCModel(vocab, args)
@@ -124,9 +126,9 @@ def run():
     """
     Prepares and runs the whole system.
     """
-    args = parse_args()
+    # args = parse_args()
 
-    logger = logging.getLogger("brc")
+    logger = logging.getLogger("rc")
     logger.setLevel(logging.INFO)
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     if args.log_path:
@@ -142,20 +144,18 @@ def run():
 
     logger.info('Running with args : {}'.format(args))
 
-    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-    os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
-
 #    args.prepare = True
 
-    if args.prepare:
-        prepare(args)
+    # if args.prepare:
+    #     prepare(args)
     if args.train:
         train(args)
-    if args.evaluate:
-        evaluate(args)
-    if args.predict:
-        predict(args)
+    # if args.evaluate:
+    #     evaluate(args)
+    # if args.predict:
+    #     predict(args)
 
 if __name__ == '__main__':
     # prepare(args)
-    batch = train(args)
+    # batch = train(args)
+    run()
