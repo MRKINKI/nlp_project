@@ -18,16 +18,18 @@ from .utils import _normalize_answer,_exact_match,_f1_score, score, BatchGen
 
 
 class DrqaTrain:
-    def __init__(self, args, vocab):
+    def __init__(self, vocab, args):
         self.args = args
         self.logger = logging.getLogger("rc")
         self.vocab = vocab
 
-    def train(self, data, ):
+    def train(self, data):
         self.logger.info('[training starts.]')
         # train, dev, dev_y, embedding, opt = load_data(vars(args))
         self.logger.info('[train_length:%d dev_length:%d]' % (len(data.train_set),
                                                               len(data.dev_set)))
+
+        embedding = torch.Tensor(list(self.vocab.embeddings))
         if self.args.resume:
             self.logger.info('[loading previous model...]')
             checkpoint = torch.load(os.path.join(self.args.model_dir, self.args.resume))
@@ -41,7 +43,7 @@ class DrqaTrain:
             if self.args.reduce_lr:
                 lr_decay(model.optimizer, lr_decay=self.args.reduce_lr)
         else:
-            model = DocReaderModel(self.args, self.vocab.embeddings)
+            model = DocReaderModel(self.args, embedding)
         if self.args.cuda:
             model.cuda()
         # if self.args.resume:
@@ -61,30 +63,31 @@ class DrqaTrain:
             # batches = BatchGen(train, opt,batch_size=args.batch_size, gpu=args.cuda)
             train_batches = data.gen_mini_batches('train', self.args.batch_size, shuffle=True)
             for i, batch in enumerate(train_batches):
+                print(type(batch))
                 model.update(batch)
                 if i % self.args.log_per_updates == 0:
                     self.logger.info('updates[{0:6}] train loss[{1:.5f}]]'.format(
                         model.updates, model.train_loss.avg))
-            # eval
-            if epoch % args.eval_per_epoch == 0:
-                batches = BatchGen(dev, opt,batch_size=args.batch_size, evaluation=True, gpu=args.cuda)
-                predictions = []
-                for batch in batches:
-                    prediction,_ = model.predict(batch)
-                    predictions.extend(prediction)
-                em, f1 = score(predictions, dev_y)
-                log.info("dev EM: {} F1: {}".format(em, f1))
 
-             #save
-            if not args.save_last_only or epoch == epoch_0 + args.epochs - 1:
-                model_file = os.path.join(model_dir, 'checkpoint_epoch_{}_EM:{}_F1:{}.pt'.format(epoch,em,f1))
-                model.save(model_file, epoch)
-                if f1 > best_val_score:
-                    best_val_score = f1
-                    copyfile(
-                        model_file,
-                        os.path.join(model_dir, 'best_model.pt'))
-                    log.info('[new best model saved.]')
+            # if epoch % self.args.eval_per_epoch == 0:
+            #     # batches = BatchGen(dev, opt, batch_size=args.batch_size, evaluation=True, gpu=args.cuda)
+            #     dev_batches = data.gen_mini_batches('dev', self.args.batch_size, shuffle=True)
+            #     predictions = []
+            #     for batch in dev_batches:
+            #         prediction, _ = model.predict(batch)
+            #         predictions.extend(prediction)
+            #     em, f1 = score(predictions, dev_y)
+            #     log.info("dev EM: {} F1: {}".format(em, f1))
+
+            # if not args.save_last_only or epoch == epoch_0 + args.epochs - 1:
+            #     model_file = os.path.join(model_dir, 'checkpoint_epoch_{}_EM:{}_F1:{}.pt'.format(epoch,em,f1))
+            #     model.save(model_file, epoch)
+            #     if f1 > best_val_score:
+            #         best_val_score = f1
+            #         copyfile(
+            #             model_file,
+            #             os.path.join(model_dir, 'best_model.pt'))
+            #         log.info('[new best model saved.]')
 
 
 def lr_decay(optimizer, lr_decay):
@@ -104,7 +107,7 @@ def load_data(opt):
 
     embedding = torch.Tensor(embedding)
     if opt['random_embedding']:
-        embedding = list(np.random.randn(embedding.size(0),embedding.size(1)))
+        embedding = list(np.random.randn(embedding.size(0), embedding.size(1)))
         embedding = torch.Tensor(embedding)
     
 #    embedding = torch.Tensor(meta['embedding'])
@@ -141,8 +144,3 @@ def load_data(opt):
     dev_y = dev_orig['answers'].tolist()[:len(dev)]
     dev_y = [eval(y) for y in dev_y]
     return train, dev, dev_y, embedding, opt
-
-
-if __name__ == '__main__':
-    main()
-

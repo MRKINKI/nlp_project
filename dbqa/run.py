@@ -6,7 +6,7 @@ import pickle
 import logging
 from dataset import BRCDataset
 from vocab import Vocab
-from doc_reader import train as drqa_train
+from doc_reader.train import DrqaTrain
 
 
 class args:
@@ -25,35 +25,34 @@ class args:
     cuda = True
     resume = False
     epochs = 20
+    eval_per_epoch = 1
+    resume = False
+    pretrained_words = True
+    fix_embeddings = True
 
 
 def prepare(args):
-
+    logger = logging.getLogger("rc")
     brc_data = BRCDataset(args.max_p_num, args.max_p_len, args.max_q_len,
                           args.train_files, args.dev_files, args.test_files)
     vocab = Vocab(lower=True)
     for word in brc_data.word_iter('train'):
         vocab.add(word)
-
     unfiltered_vocab_size = vocab.size()
     vocab.filter_tokens_by_cnt(min_cnt=2)
     filtered_num = unfiltered_vocab_size - vocab.size()
-    print('After filter {} tokens, the final vocab size is {}'.format(filtered_num,
-                                                                            vocab.size()))
-    print('Assigning embeddings...')
-    #vocab.randomly_init_embeddings(args.embed_size)
-    vocab.load_pretrained_embeddings(args.embedding_path)    
-    
-    print('Saving vocab...')
+    logger.info('After filter {} tokens, the final vocab size is {}'.format(filtered_num,
+                vocab.size()))
+    logger.info('Assigning embeddings...')
+    # vocab.randomly_init_embeddings(args.embed_size)
+    vocab.load_pretrained_embeddings(args.embedding_path)
+    logger.info('Saving vocab...')
     with open(os.path.join(args.vocab_dir, 'vocab.data'), 'wb') as fout:
         pickle.dump(vocab, fout)
-    print('Done with preparing!')
+    logger.info('Done with preparing!')
 
 
 def train(args):
-    """
-    trains the reading comprehension model
-    """
     logger = logging.getLogger("rc")
     logger.info('Load data_set and vocab...')
     with open(os.path.join(args.vocab_dir, 'vocab.data'), 'rb') as fin:
@@ -67,9 +66,9 @@ def train(args):
     for batch in train_batches:
         # print(batch)
         break
-    return batch
-#    rc_model = RCModel(vocab, args)
-#    logger.info('Training the model...')
+    rc_model = DrqaTrain(vocab, args)
+    logger.info('Training the model...')
+    rc_model.train(brc_data)
 #    rc_model.train(brc_data, args.epochs, args.batch_size, save_dir=args.model_dir,
 #                   save_prefix=args.algo,
 #                   dropout_keep_prob=args.dropout_keep_prob)

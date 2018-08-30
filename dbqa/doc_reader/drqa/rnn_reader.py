@@ -13,16 +13,16 @@ class RnnDocReader(nn.Module):
     def __init__(self, opt, padding_idx=0, embedding=None):
         super(RnnDocReader, self).__init__()
         # Store config
-        self.opt = opt
+        self.opt = opt.__dict__
         # Word embeddings
-        if opt['pretrained_words']:
+        if self.opt['pretrained_words']:
             assert embedding is not None
             self.embedding = nn.Embedding(embedding.size(0),
                                           embedding.size(1),
                                           padding_idx=padding_idx)
             self.embedding.weight.data = embedding
-            if opt['fix_embeddings']:
-                assert opt['tune_partial'] == 0
+            if self.opt['fix_embeddings']:
+                assert self.opt['tune_partial'] == 0
                 for p in self.embedding.parameters():
                     p.requires_grad = False
             elif opt['tune_partial'] > 0:
