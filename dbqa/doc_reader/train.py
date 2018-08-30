@@ -14,177 +14,77 @@ import pandas as pd
 import numpy as np
 from .drqa.model import DocReaderModel
 from .drqa.utils import str2bool
-from .utils import _normalize_answer,_exact_match,_f1_score,score,BatchGen
-
-parser = argparse.ArgumentParser(
-    description='start training'
-)
-
-parser.add_argument('--log_file', default='output.log',
-                    help='log文件地址')
-parser.add_argument('--log_per_updates', type=int, default=3,
-                    help='输出训练误差的间隔batch数')
-parser.add_argument('--data_file', default='data/data.msgpack',
-                    help='数据地址')
-parser.add_argument('--model_dir', default='models',
-                    help='模型地址')
-parser.add_argument('--save_last_only', action='store_true',
-                    help='是否只存储最终模型')
-parser.add_argument('--eval_per_epoch', type=int, default=1,
-                    help='输出验证误差间隔epoch数')
-parser.add_argument('--seed', type=int, default=411,
-                    help='随机种子值')
-parser.add_argument("--cuda", type=str2bool, nargs='?',
-                    const=True, default=torch.cuda.is_available(),
-                    help='默认使用GPU')
-parser.add_argument('-e', '--epochs', type=int, default=20)
-parser.add_argument('-bs', '--batch_size', type=int, default=32)
-parser.add_argument('-rs', '--resume', default='',
-                    help='previous model file name (in `model_dir`). '
-                         'e.g. "checkpoint_epoch_11.pt"')
-parser.add_argument('-ro', '--resume_options', action='store_true',
-                    help='use previous model options, ignore the cli and defaults.')
-parser.add_argument('-rlr', '--reduce_lr', type=float, default=0.,
-                    help='reduce initial (resumed) learning rate by this factor.')
-parser.add_argument('-op', '--optimizer', default='adamax',
-                    help='supported optimizer: adamax, sgd')
-
-parser.add_argument('-gc', '--grad_clipping', type=float, default=10)
-parser.add_argument('-wd', '--weight_decay', type=float, default=0)
-parser.add_argument('-lr', '--learning_rate', type=float, default=0.1,
-                    help='only applied to SGD.')
-parser.add_argument('-mm', '--momentum', type=float, default=0,
-                    help='only applied to SGD.')
-parser.add_argument('-tp', '--tune_partial', type=int, default=1000,
-                    help='finetune词频排前tp的词,默认1000')
-parser.add_argument('--fix_embeddings', action='store_true',
-                    help='if true, `tune_partial` will be ignored.')
-parser.add_argument('--rnn_padding', action='store_true',
-                    help='perform rnn padding (much slower but more accurate).')
-# model
-parser.add_argument('--question_merge', default='self_attn')
-parser.add_argument('--doc_layers', type=int, default=3)
-parser.add_argument('--question_layers', type=int, default=3)
-parser.add_argument('--hidden_size', type=int, default=128)
-parser.add_argument('--num_features', type=int, default=2)
-
-parser.add_argument('--pos', type=str2bool, nargs='?', const=True, default=False,
-                    help='是否使用词性')
-parser.add_argument('--ner', type=str2bool, nargs='?', const=True, default=False,
-                    help='是否使用实体标注')
-parser.add_argument('--use_qemb', type=str2bool, nargs='?', const=True, default=True)
-parser.add_argument('--concat_rnn_layers', type=str2bool, nargs='?',
-                    const=True, default=True)
-parser.add_argument('--dropout_emb', type=float, default=0.3)
-parser.add_argument('--dropout_rnn', type=float, default=0.3)
-parser.add_argument('--dropout_rnn_output', type=str2bool, nargs='?',
-                    const=True, default=True)
-parser.add_argument('--max_len', type=int, default=15)
-parser.add_argument('--rnn_type', default='lstm',
-                    help='supported types: rnn, gru, lstm')
-parser.add_argument('--pretrained_words', type=str2bool,default = True)
-parser.add_argument('--random_embedding', type=str2bool,default = True,
-                    help='是否使用随机矩阵作为词embedding矩阵')
-
-args = parser.parse_args()
-
-# set model dir
-model_dir = args.model_dir
-os.makedirs(model_dir, exist_ok=True)
-model_dir = os.path.abspath(model_dir)
-
-# set random seed
-random.seed(args.seed)
-torch.manual_seed(args.seed)
-if args.cuda:
-    torch.cuda.manual_seed(args.seed)
-
-# setup logger
-log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
-fh = logging.FileHandler(args.log_file)
-fh.setLevel(logging.DEBUG)
-ch = logging.StreamHandler(sys.stdout)
-ch.setLevel(logging.INFO)
-formatter = logging.Formatter(fmt='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S')
-fh.setFormatter(formatter)
-ch.setFormatter(formatter)
-log.addHandler(fh)
-log.addHandler(ch)
+from .utils import _normalize_answer,_exact_match,_f1_score, score, BatchGen
 
 
-def main():
-    log.info('[program starts.]')
-    log.info(vars(args))
-    train, dev, dev_y, embedding, opt = load_data(vars(args))
-    
-    log.info('[Data loaded.]')
-    log.info('[train_length:%d dev_length:%d]'%(len(train),len(dev)))
+class DrqaTrain:
+    def __init__(self, args, vocab):
+        self.args = args
+        self.logger = logging.getLogger("rc")
+        self.vocab = vocab
 
-    if args.resume:
-        log.info('[loading previous model...]')
-        checkpoint = torch.load(os.path.join(model_dir, args.resume))
-        if args.resume_options:
-            opt = checkpoint['config']
-        state_dict = checkpoint['state_dict']
-        model = DocReaderModel(opt, embedding, state_dict)
-        epoch_0 = checkpoint['epoch'] + 1
-        for i in range(checkpoint['epoch']):
-            random.shuffle(list(range(len(train))))  # synchronize random seed
-        if args.reduce_lr:
-            lr_decay(model.optimizer, lr_decay=args.reduce_lr)
-            
-    else:
-        model = DocReaderModel(opt, embedding)
-        epoch_0 = 1
+    def train(self, data, ):
+        self.logger.info('[training starts.]')
+        # train, dev, dev_y, embedding, opt = load_data(vars(args))
+        self.logger.info('[train_length:%d dev_length:%d]' % (len(data.train_set),
+                                                              len(data.dev_set)))
+        if self.args.resume:
+            self.logger.info('[loading previous model...]')
+            checkpoint = torch.load(os.path.join(self.args.model_dir, self.args.resume))
+            if self.args.resume_options:
+                opt = checkpoint['config']
+            state_dict = checkpoint['state_dict']
+            model = DocReaderModel(opt, embedding, state_dict)
+            epoch_0 = checkpoint['epoch'] + 1
+            for i in range(checkpoint['epoch']):
+                random.shuffle(list(range(len(train))))  # synchronize random seed
+            if self.args.reduce_lr:
+                lr_decay(model.optimizer, lr_decay=self.args.reduce_lr)
+        else:
+            model = DocReaderModel(self.args, self.vocab.embeddings)
+        if self.args.cuda:
+            model.cuda()
+        # if self.args.resume:
+        #     batches = BatchGen(dev, opt,batch_size=args.batch_size, evaluation=True, gpu=args.cuda)
+        #     predictions = []
+        #     for batch in batches:
+        #         prediction,_ = model.predict(batch)
+        #         predictions.extend(prediction)
+        #     em, f1 = score(predictions, dev_y)
+        #     log.info("[dev EM: {} F1: {}]".format(em, f1))
+        #     best_val_score = f1
+        # else:
+        #     best_val_score = 0.0
 
-    if args.cuda:
-        model.cuda()
+        for epoch in range(1, self.args.epochs + 1):
+            self.logger.info('Epoch {}'.format(epoch))
+            # batches = BatchGen(train, opt,batch_size=args.batch_size, gpu=args.cuda)
+            train_batches = data.gen_mini_batches('train', self.args.batch_size, shuffle=True)
+            for i, batch in enumerate(train_batches):
+                model.update(batch)
+                if i % self.args.log_per_updates == 0:
+                    self.logger.info('updates[{0:6}] train loss[{1:.5f}]]'.format(
+                        model.updates, model.train_loss.avg))
+            # eval
+            if epoch % args.eval_per_epoch == 0:
+                batches = BatchGen(dev, opt,batch_size=args.batch_size, evaluation=True, gpu=args.cuda)
+                predictions = []
+                for batch in batches:
+                    prediction,_ = model.predict(batch)
+                    predictions.extend(prediction)
+                em, f1 = score(predictions, dev_y)
+                log.info("dev EM: {} F1: {}".format(em, f1))
 
-    if args.resume:
-        batches = BatchGen(dev, opt,batch_size=args.batch_size, evaluation=True, gpu=args.cuda)
-        predictions = []
-        for batch in batches:
-            prediction,_ = model.predict(batch)
-            predictions.extend(prediction)
-        em, f1 = score(predictions, dev_y)
-        log.info("[dev EM: {} F1: {}]".format(em, f1))
-        best_val_score = f1
-    else:
-        best_val_score = 0.0
-
-    for epoch in range(epoch_0, epoch_0 + args.epochs):
-        log.warn('Epoch {}'.format(epoch))
-        # train
-        batches = BatchGen(train, opt,batch_size=args.batch_size, gpu=args.cuda)
-        start = datetime.now()
-        for i, batch in enumerate(batches):
-            model.update(batch)
-            if i % args.log_per_updates == 0:
-                log.info('updates[{0:6}] train loss[{1:.5f}] remaining[{2}]'.format(
-                    model.updates, model.train_loss.avg,
-                    str((datetime.now() - start) / (i + 1) * (len(batches) - i - 1)).split('.')[0]))
-                
-         #eval
-        if epoch % args.eval_per_epoch == 0:
-            batches = BatchGen(dev, opt,batch_size=args.batch_size, evaluation=True, gpu=args.cuda)
-            predictions = []
-            for batch in batches:
-                prediction,_ = model.predict(batch)
-                predictions.extend(prediction)
-            em, f1 = score(predictions, dev_y)
-            log.info("dev EM: {} F1: {}".format(em, f1))
-            
-         #save
-        if not args.save_last_only or epoch == epoch_0 + args.epochs - 1:
-            model_file = os.path.join(model_dir, 'checkpoint_epoch_{}_EM:{}_F1:{}.pt'.format(epoch,em,f1))
-            model.save(model_file, epoch)
-            if f1 > best_val_score:
-                best_val_score = f1
-                copyfile(
-                    model_file,
-                    os.path.join(model_dir, 'best_model.pt'))
-                log.info('[new best model saved.]')
+             #save
+            if not args.save_last_only or epoch == epoch_0 + args.epochs - 1:
+                model_file = os.path.join(model_dir, 'checkpoint_epoch_{}_EM:{}_F1:{}.pt'.format(epoch,em,f1))
+                model.save(model_file, epoch)
+                if f1 > best_val_score:
+                    best_val_score = f1
+                    copyfile(
+                        model_file,
+                        os.path.join(model_dir, 'best_model.pt'))
+                    log.info('[new best model saved.]')
 
 
 def lr_decay(optimizer, lr_decay):

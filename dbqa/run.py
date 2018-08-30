@@ -22,6 +22,9 @@ class args:
     batch_size = 32
     log_path = False
     train = True
+    cuda = True
+    resume = False
+    epochs = 20
 
 
 def prepare(args):
@@ -37,7 +40,6 @@ def prepare(args):
     filtered_num = unfiltered_vocab_size - vocab.size()
     print('After filter {} tokens, the final vocab size is {}'.format(filtered_num,
                                                                             vocab.size()))
-
     print('Assigning embeddings...')
     #vocab.randomly_init_embeddings(args.embed_size)
     vocab.load_pretrained_embeddings(args.embedding_path)    
