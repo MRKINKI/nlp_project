@@ -23,7 +23,8 @@ class DocReaderModel(object):
 
     def __init__(self, opt, embedding=None, state_dict=None):
 
-        self.opt = opt
+        self.opt = opt.__dict__
+        opt = opt.__dict__
         self.updates = state_dict['updates'] if state_dict else 0
         self.train_loss = AverageMeter()
 

@@ -17,6 +17,7 @@ class args:
     test_files = ['./data/cetc/test.json']
     dev_files = ['./data/cetc/test.json']
     embed_size = 100
+    embedding_dim = 100
     embedding_path = './data/embedding/sogou2012.emb'
     vocab_dir = './data/cetc/'
     batch_size = 32
@@ -29,7 +30,28 @@ class args:
     resume = False
     pretrained_words = True
     fix_embeddings = True
-
+    tune_partial = 0
+    use_qemb = True
+    num_features = 0
+    pos = False
+    ner = False
+    rlr = 0
+    optimizer = 'adamax'
+    grad_clipping = 10
+    weight_decay = 0
+    learning_rate = 0.1
+    momentum = 0
+    tune_partial = 0
+    question_merge = 'self_attn'
+    doc_layers = 3
+    question_layers = 3
+    hidden_size = 128
+    concat_rnn_layers = True
+    dropout_emb = 0.3
+    dropout_rnn = 0.3
+    dropout_rnn_output = True
+    rnn_type = 'lstm'
+    rnn_padding = True
 
 def prepare(args):
     logger = logging.getLogger("rc")
