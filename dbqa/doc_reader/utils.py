@@ -98,7 +98,7 @@ def token2id(docs, vocab, unk_id=None):
     return ids
 
 
-def get_context_features(question_tokens,context_tokens):
+def get_context_features(question_tokens, context_tokens):
     '''
     提取问答词特征(词频及是否出现在问题中)
     '''
