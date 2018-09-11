@@ -7,15 +7,22 @@ import logging
 from dataset import BRCDataset
 from vocab import Vocab
 from doc_reader.train import DrqaTrain
+from utils.prepro import prepro_token, train_test_split
+import sys
+sys.path.append('../nlp')
+from ltpnlp import LtpNlp
 
 
 class args:
     max_p_num = 1
     max_p_len = 500
     max_q_len = 30
-    train_files = ['./data/cetc/train.json']
-    test_files = ['./data/cetc/test.json']
-    dev_files = ['./data/cetc/test.json']
+    train_rate = 0.8
+    raw_file = './data/cetc/question.json'
+    all_file = './data/cetc/all.json'
+    train_file = './data/cetc/train.json'
+    test_file = './data/cetc/test.json'
+    dev_file = './data/cetc/test.json'
     embed_size = 100
     embedding_dim = 100
     embedding_path = './data/embedding/sogou2012.emb'
@@ -52,11 +59,19 @@ class args:
     dropout_rnn_output = True
     rnn_type = 'lstm'
     rnn_padding = True
+    prepare = True
+    
+def preprocess(args):
+    ln = LtpNlp()
+    tokenizer = ln.tokenize
+    prepro_token(args.raw_file, args.all_file, tokenizer, extract_sample=True, chunk='paragraphs')
+    train_test_split(args.all_file, args.train_file, args.test_file, args.train_rate)
+    ln.release()
 
 def prepare(args):
     logger = logging.getLogger("rc")
     brc_data = BRCDataset(args.max_p_num, args.max_p_len, args.max_q_len,
-                          args.train_files, args.dev_files, args.test_files)
+                          args.train_file, args.dev_file, args.test_file)
     vocab = Vocab(lower=True)
     for word in brc_data.word_iter('train'):
         vocab.add(word)
@@ -169,10 +184,11 @@ def run():
 
 #    args.prepare = True
 
-    # if args.prepare:
-    #     prepare(args)
-    if args.train:
-        train(args)
+    if args.prepare:
+        prepare(args)
+#        preprocess(args)
+#    if args.train:
+#        train(args)
     # if args.evaluate:
     #     evaluate(args)
     # if args.predict:

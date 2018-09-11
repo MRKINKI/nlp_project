@@ -63,11 +63,12 @@ class DrqaTrain:
             # batches = BatchGen(train, opt,batch_size=args.batch_size, gpu=args.cuda)
             train_batches = data.gen_mini_batches('train', self.args.batch_size, shuffle=True)
             for i, batch in enumerate(train_batches):
-                print(type(batch))
-                model.update(batch)
-                if i % self.args.log_per_updates == 0:
-                    self.logger.info('updates[{0:6}] train loss[{1:.5f}]]'.format(
-                        model.updates, model.train_loss.avg))
+                print(len(batch))
+                break
+                # model.update(batch)
+                # if i % self.args.log_per_updates == 0:
+                #     self.logger.info('updates[{0:6}] train loss[{1:.5f}]]'.format(
+                #         model.updates, model.train_loss.avg))
 
             # if epoch % self.args.eval_per_epoch == 0:
             #     # batches = BatchGen(dev, opt, batch_size=args.batch_size, evaluation=True, gpu=args.cuda)

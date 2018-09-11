@@ -23,6 +23,7 @@ import json
 import logging
 import numpy as np
 from collections import Counter
+from utils.feature import FeatureExtract
 
 
 class BRCDataset(object):
@@ -30,19 +31,19 @@ class BRCDataset(object):
     This module implements the APIs for loading and using baidu reading comprehension dataset
     """
     def __init__(self, max_p_num, max_p_len, max_q_len,
-                 train_files=[], dev_files=[], test_files=[]):
+                 train_file, dev_file, test_file):
+        self.feature_extract = FeatureExtract()
+        
         self.max_p_num = max_p_num
         self.max_p_len = max_p_len
         self.max_q_len = max_q_len
 
         self.train_set, self.dev_set, self.test_set = [], [], []
-        if train_files:
-            for train_file in train_files:
-                self.train_set += self._load_dataset(train_file, train=True)
+        if train_file:
+            self.train_set = self._load_dataset(train_file, train=True)
 
-        if dev_files:
-            for dev_file in dev_files:
-                self.dev_set += self._load_dataset(dev_file)
+        if dev_file:
+            self.dev_set = self._load_dataset(dev_file)
 
 #        if test_files:
 #            for test_file in test_files:
@@ -56,9 +57,13 @@ class BRCDataset(object):
         """
         with open(data_path,encoding = 'utf8') as fin:
             data_set = []
-            for line in fin:
+            for idx, line in enumerate(fin):
                 sample = json.loads(line.strip())
-                data_set.append(sample)
+                for qa_sample in sample['questions']:
+                    if qa_sample['bad_sample'] == 0 and qa_sample['find_answer'] == 1:
+                        # print(idx, qa_sample.keys(), qa_sample['find_answer'])
+                        new_qa_sample = self.feature_extract.extract(qa_sample)
+                        data_set.append(new_qa_sample)
         return data_set
 
     def _one_mini_batch(self, data, indices):
@@ -75,14 +80,14 @@ class BRCDataset(object):
         batches = []
         for sidx, sample in enumerate(raw_data):
             batch_data = {}
-            batch_data['question_token_ids'] = sample['question_token_ids']
-            batch_data['passage_token_ids'] = sample['most_related_para_token_ids']
-            if 'answer_spans' in sample:
-                batch_data['start_id'] = sample['answer_spans'][0]
-                batch_data['end_id'] = sample['answer_spans'][1]
-            else:
-                batch_data['start_id'] = 0
-                batch_data['end_id'] = 0
+            batch_data['question_word_ids'] = sample['question_word_ids']
+            batch_data['context_word_ids'] = sample['context_word_ids']
+#            if 'answer_spans' in sample:
+#                batch_data['start_id'] = sample['answer_spans'][0]
+#                batch_data['end_id'] = sample['answer_spans'][1]
+#            else:
+#                batch_data['start_id'] = 0
+#                batch_data['end_id'] = 0
             batches.append(batch_data)
         return batches
 
@@ -118,9 +123,9 @@ class BRCDataset(object):
             raise NotImplementedError('No data set named as {}'.format(set_name))
         if data_set is not None:
             for sample in data_set:
-                for token in sample['question_token']:
+                for token in sample['question_word']:
                     yield token
-                for token in sample['most_related_para']:
+                for token in sample['context_word']:
                     yield token
 
     def convert_to_ids(self, vocab):
@@ -133,8 +138,8 @@ class BRCDataset(object):
             if data_set is None:
                 continue
             for sample in data_set:
-                sample['question_token_ids'] = vocab.convert_to_ids(sample['question_token'])
-                sample['most_related_para_token_ids'] = vocab.convert_to_ids(sample['most_related_para'])
+                sample['question_word_ids'] = vocab.convert_to_ids(sample['question_word'])
+                sample['context_word_ids'] = vocab.convert_to_ids(sample['context_word'])
 #                for passage in sample['passages']:
 #                    passage['passage_token_ids'] = vocab.convert_to_ids(passage['passage_tokens'])
 

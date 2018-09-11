@@ -32,41 +32,42 @@ def metric_max_over_ground_truths(metric_fn, prediction, ground_truth):
     score = metric_fn(prediction, ground_truth)
     return score
 
-def find_answer(paragraphs, sample):
+def find_answer(paragraphs, qa_sample):
     most_related_para_idx = -1
     most_related_para_len = 999999
     max_related_score = 0
-    answer_tokens = sample['answer_token']
-    for p_idx, para_tokens in enumerate(paragraphs):
-        if len(answer_tokens) > 0:
+    answer_words = qa_sample['answer_tokens']['cws']
+    paragraph_words = [p['cws'] for p in paragraphs]
+    for p_idx, para_words in enumerate(paragraph_words):
+        if len(answer_words) > 0:
             related_score = metric_max_over_ground_truths(recall,
-                                                          para_tokens,
-                                                          answer_tokens)
+                                                          para_words,
+                                                          answer_words)
         else:
             continue
         if related_score > max_related_score \
                 or (related_score == max_related_score
-                    and len(para_tokens) < most_related_para_len):
+                    and len(para_words) < most_related_para_len):
             most_related_para_idx = p_idx
-            most_related_para_len = len(para_tokens)
+            most_related_para_len = len(para_words)
             max_related_score = related_score
-    sample['most_related_para_idx'] = most_related_para_idx
+    qa_sample['most_related_para_idx'] = most_related_para_idx
     
     best_match_score = 0
     best_match_d_idx, best_match_span = -1, [-1, -1]
     best_fake_answer = None
     #answer_tokens = set()
-    answer_tokens_set = set(answer_tokens)
-    if sample['most_related_para_idx'] != -1:
-        most_related_para_tokens = paragraphs[most_related_para_idx][:500]
-        for start_tidx in range(len(most_related_para_tokens)):
-            if most_related_para_tokens[start_tidx] not in answer_tokens_set:
+    answer_words_set = set(answer_words)
+    if qa_sample['most_related_para_idx'] != -1:
+        most_related_para_words = paragraph_words[most_related_para_idx][:500]
+        for start_tidx in range(len(most_related_para_words)):
+            if most_related_para_words[start_tidx] not in answer_words_set:
                 continue
-            for end_tidx in range(len(most_related_para_tokens) - 1, start_tidx - 1, -1):
-                span_tokens = most_related_para_tokens[start_tidx: end_tidx + 1]
-                if len(answer_tokens) > 0:
-                    match_score = metric_max_over_ground_truths(f1_score, span_tokens,
-                                                                answer_tokens)
+            for end_tidx in range(len(most_related_para_words) - 1, start_tidx - 1, -1):
+                span_words = most_related_para_words[start_tidx: end_tidx + 1]
+                if len(answer_words) > 0:
+                    match_score = metric_max_over_ground_truths(f1_score, span_words,
+                                                                answer_words)
                 else:
                     match_score = 0
                 if match_score == 0:
@@ -74,25 +75,27 @@ def find_answer(paragraphs, sample):
                 if match_score > best_match_score:
                     best_match_span = [start_tidx, end_tidx]
                     best_match_score = match_score
-                    best_answer = ''.join(span_tokens)
+                    best_answer = ''.join(span_words)
     if best_match_score > 0:
-        sample['answer_docs'] = best_match_d_idx
-        sample['answer_spans'] = best_match_span
-        sample['match_answer'] = best_answer
-        sample['match_score'] = best_match_score
-        sample['find_answer'] = 1
-        sample['most_related_para'] = paragraphs[most_related_para_idx]
+        qa_sample['answer_docs'] = best_match_d_idx
+        qa_sample['answer_spans'] = best_match_span
+        qa_sample['match_answer'] = best_answer
+        qa_sample['match_score'] = best_match_score
+        qa_sample['find_answer'] = 1
+        qa_sample['most_related_para'] = paragraphs[most_related_para_idx]
     else:
-        sample['find_answer'] = 0
-    return sample
+        qa_sample['find_answer'] = 0
+
         
 def get_sample(sample):
-    samples = []
-    paragraphs = sample['paragraphs_token']
-    for question_doc in sample['questions']:
-        new_sample = find_answer(paragraphs, question_doc)
-        samples.append(new_sample)
-    return samples        
+    #samples = []
+    #paragraphs = [p['cws'] for p in sample['paragraphs_tokens']]
+    paragraphs = sample['paragraphs_tokens']
+    for qa_sample in sample['questions']:
+        if qa_sample['bad_sample'] == 0:
+            find_answer(paragraphs, qa_sample)
+        #samples.append(new_sample)
+    return sample        
         
 
 
