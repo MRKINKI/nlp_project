@@ -136,6 +136,10 @@ class Vocab(object):
                 if self.embed_dim is None:
                     self.embed_dim = len(contents) - 1
         filtered_tokens = trained_embeddings.keys()
+        filtered_token_cnt = [(token, self.token_cnt[token]) for token in filtered_tokens]
+        sorted_filtered_token_cnt = sorted(filtered_token_cnt, key=lambda f: f[1], reverse=True)
+        filtered_tokens = [token[0] for token in sorted_filtered_token_cnt]
+        # print(sorted_filtered_token_cnt[:1000])
         # rebuild the token x id map
         self.token2id = {}
         self.id2token = {}
@@ -175,3 +179,10 @@ class Vocab(object):
             if stop_id is not None and i == stop_id:
                 break
         return tokens
+
+        
+class DataVocabs:
+    def __init__(self):
+        self.word_vocab = Vocab(lower=True)
+        self.pos_vocab = Vocab(lower=True)
+        self.ner_vocab = Vocab(lower=True)

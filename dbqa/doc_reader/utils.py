@@ -10,28 +10,6 @@ import torch
 import random
 
 
-def get_context_features(question_tokens, context_tokens):
-    '''
-    提取问答词特征(词频及是否出现在问题中)
-    '''
-    context_features = []
-    context_tf = []
-    for doc in context_tokens:
-        counter_ = collections.Counter(w.lower() for w in doc)
-        total = sum(counter_.values())
-        context_tf.append([counter_[w.lower()] / total for w in doc])
-    
-    #is in question
-    for question,context in zip(question_tokens,context_tokens):
-        match_origin = [t in question for t in context]
-        context_features.append(list(zip(match_origin)))
-    
-    context_features = [[list(w) + [tf] for w, tf in zip(doc, tfs)] for doc, tfs in
-                        zip(context_features, context_tf)]
-    
-    return context_features
-    
-
 class BatchGen:
     def __init__(self, data,opt ,batch_size, gpu, evaluation=False):
         '''

@@ -26,6 +26,8 @@ class FeatureExtract:
         new_sample['context_ner'] = sample['most_related_para']['ner']
         new_sample['context_pos'] = sample['most_related_para']['pos']
         new_sample['question_word'] = sample['question_tokens']['cws']
+        new_sample['question_ner'] = sample['question_tokens']['ner']
+        new_sample['question_pos'] = sample['question_tokens']['pos']
         new_sample['answer_spans'] = sample['answer_spans']
         new_sample['answer_start'] = sample['answer_spans'][0]
         new_sample['answer_end'] = sample['answer_spans'][1]

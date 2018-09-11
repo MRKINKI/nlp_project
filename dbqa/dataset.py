@@ -32,8 +32,8 @@ class BRCDataset(object):
     """
     def __init__(self, max_p_num, max_p_len, max_q_len,
                  train_file, dev_file, test_file):
+        self.logger = logging.getLogger("rc")
         self.feature_extract = FeatureExtract()
-        
         self.max_p_num = max_p_num
         self.max_p_len = max_p_len
         self.max_q_len = max_q_len
@@ -44,7 +44,8 @@ class BRCDataset(object):
 
         if dev_file:
             self.dev_set = self._load_dataset(dev_file)
-
+        self.logger.info('train_set size: {}'.format(len(self.train_set)))
+        self.logger.info('dev_set size: {}'.format(len(self.dev_set)))
 #        if test_files:
 #            for test_file in test_files:
 #                self.test_set += self._load_dataset(test_file)
@@ -82,6 +83,12 @@ class BRCDataset(object):
             batch_data = {}
             batch_data['question_word_ids'] = sample['question_word_ids']
             batch_data['context_word_ids'] = sample['context_word_ids']
+            batch_data['start_id'] = sample['answer_start']
+            batch_data['end_id'] = sample['answer_end']
+            batch_data['context_ner_ids'] = sample['context_ner_ids']
+            batch_data['context_pos_ids'] = sample['context_pos_ids'] 
+            batch_data['context_em'] = sample['context_em']
+            batch_data['context_freq'] = sample['context_freq']
 #            if 'answer_spans' in sample:
 #                batch_data['start_id'] = sample['answer_spans'][0]
 #                batch_data['end_id'] = sample['answer_spans'][1]
@@ -123,12 +130,16 @@ class BRCDataset(object):
             raise NotImplementedError('No data set named as {}'.format(set_name))
         if data_set is not None:
             for sample in data_set:
-                for token in sample['question_word']:
+                for token in zip(sample['question_word'], 
+                                 sample['question_pos'],
+                                 sample['question_ner']):
                     yield token
-                for token in sample['context_word']:
+                for token in zip(sample['context_word'],
+                                 sample['context_pos'],
+                                 sample['context_ner']):
                     yield token
 
-    def convert_to_ids(self, vocab):
+    def convert_to_ids(self, data_vocabs):
         """
         Convert the question and passage in the original dataset to ids
         Args:
@@ -138,8 +149,10 @@ class BRCDataset(object):
             if data_set is None:
                 continue
             for sample in data_set:
-                sample['question_word_ids'] = vocab.convert_to_ids(sample['question_word'])
-                sample['context_word_ids'] = vocab.convert_to_ids(sample['context_word'])
+                sample['question_word_ids'] = data_vocabs.word_vocab.convert_to_ids(sample['question_word'])
+                sample['context_word_ids'] = data_vocabs.word_vocab.convert_to_ids(sample['context_word'])
+                sample['context_ner_ids'] = data_vocabs.ner_vocab.convert_to_ids(sample['context_ner'])
+                sample['context_pos_ids'] = data_vocabs.pos_vocab.convert_to_ids(sample['context_pos'])
 #                for passage in sample['passages']:
 #                    passage['passage_token_ids'] = vocab.convert_to_ids(passage['passage_tokens'])
 
