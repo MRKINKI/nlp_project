@@ -7,6 +7,7 @@ import logging
 from dataset import BRCDataset
 from vocab import DataVocabs
 from doc_reader.train import DrqaTrain
+from doc_reader.drqa_model import DrqaModel
 from utils.prepro import prepro_token, train_test_split
 import sys
 sys.path.append('../nlp')
@@ -64,6 +65,10 @@ class args:
     eval_per_epoch = 1
     max_len = 100
     save_last_only = False
+    resume = False
+    resume_file = 'best_model.pt'
+    predict = True
+    resume_options = False
 
 
 def preprocess(args):
@@ -153,23 +158,27 @@ def predict(args):
     """
     predicts answers for test files
     """
-    logger = logging.getLogger("brc")
+    logger = logging.getLogger("rc")
     logger.info('Load data_set and vocab...')
     with open(os.path.join(args.vocab_dir, 'vocab.data'), 'rb') as fin:
-        vocab = pickle.load(fin)
-    assert len(args.test_files) > 0, 'No test files are provided.'
+        data_vocabs = pickle.load(fin)
+    assert args.test_file, 'No test files are provided.'
+    args.pos_size = data_vocabs.pos_vocab.size()
+    args.ner_size = data_vocabs.ner_vocab.size()
     brc_data = BRCDataset(args.max_p_num, args.max_p_len, args.max_q_len,
-                          test_files=args.test_files)
+                          test_file=args.test_file)
     logger.info('Converting text into ids...')
-    brc_data.convert_to_ids(vocab)
+    brc_data.convert_to_ids(data_vocabs)
     logger.info('Restoring the model...')
-    rc_model = RCModel(vocab, args)
-    rc_model.restore(model_dir=args.model_dir, model_prefix=args.algo)
-    logger.info('Predicting answers for test set...')
-    test_batches = brc_data.gen_mini_batches('test', args.batch_size,
-                                             pad_id=vocab.get_id(vocab.pad_token), shuffle=False)
-    rc_model.evaluate(test_batches,
-                      result_dir=args.result_dir, result_prefix='test.predicted')
+    rc_model = DrqaModel(data_vocabs.word_vocab, args, eva=True)
+    rc_model.evaluate(brc_data)
+    # rc_model = RCModel(vocab, args)
+    # rc_model.restore(model_dir=args.model_dir, model_prefix=args.algo)
+    # logger.info('Predicting answers for test set...')
+    # test_batches = brc_data.gen_mini_batches('test', args.batch_size,
+    #                                          pad_id=vocab.get_id(vocab.pad_token), shuffle=False)
+    # rc_model.evaluate(test_batches,
+    #                   result_dir=args.result_dir, result_prefix='test.predicted')
 
 
 def run():
@@ -203,8 +212,8 @@ def run():
         train(args)
     # if args.evaluate:
     #     evaluate(args)
-    # if args.predict:
-    #     predict(args)
+#    if args.predict:
+#        predict(args)
 
 
 if __name__ == '__main__':

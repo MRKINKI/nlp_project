@@ -8,6 +8,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 import numpy as np
 import logging
+import json
 
 from torch.autograd import Variable
 from .utils import AverageMeter
@@ -138,11 +139,20 @@ class DocReaderModel(object):
                 'optimizer': self.optimizer.state_dict(),
                 'updates': self.updates
             },
-            'config': str(self.opt),
+            'config': self.get_args_dict(self.opt),
             'epoch': epoch
         }
         torch.save(params, filename)
         logger.info('model saved to {}'.format(filename))
+
+    @staticmethod
+    def get_args_dict(obj):
+        pr = {}
+        for name in obj:
+            value = obj[name]
+            if not name.startswith('__') and not callable(value):
+                pr[name] = value
+        return pr
 
     def cuda(self):
         self.network.cuda()
