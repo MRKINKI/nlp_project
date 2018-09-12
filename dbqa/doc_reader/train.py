@@ -6,8 +6,7 @@ import string
 import logging
 import argparse
 from shutil import copyfile
-from datetime import datetime
-from collections import Counter
+import json
 import torch
 import msgpack
 import pandas as pd
@@ -15,6 +14,7 @@ import numpy as np
 from .drqa.model import DocReaderModel
 from .drqa.utils import str2bool
 from .utils import _normalize_answer,_exact_match,_f1_score, score, BatchTransform
+from evaluate.cetc_evaluate.main import CetcEva
 
 
 class DrqaTrain:
@@ -24,6 +24,7 @@ class DrqaTrain:
         self.vocab = vocab
         self.batch_transform = BatchTransform(args)
         self.best_val_score = 0
+        self.cetc_eva = CetcEva()
 
     def train(self, data):
         self.logger.info('[training starts.]')
@@ -72,22 +73,26 @@ class DrqaTrain:
 
             if epoch % self.args.eval_per_epoch == 0:
                 dev_batches = data.gen_mini_batches('dev', self.args.batch_size, shuffle=True)
-                predictions = []
-                trues = []
+                predicts = []
                 for batch in dev_batches:
-                    trues.extend([sample['answer'] for sample in batch])
-                    batch = self.batch_transform.transform(batch, eva=True)
-                    prediction, _ = model.predict(batch)
-                    predictions.extend(prediction)
-                em, f1 = score(predictions, trues)
-                self.logger.info("dev EM: {} F1: {}".format(em, f1))
+                    transform_batch = self.batch_transform.transform(batch, eva=True)
+                    prediction, _ = model.predict(transform_batch)
+                    for idx, pred in enumerate(prediction):
+                        batch[idx]['pred'] = pred
+                    predicts.extend(batch)
+                bleu_score, rouge_score = self.cetc_eva.eva(predicts, 'answer', 'pred')
+                # json.dump(predicts, open('./data/pred.json', 'w'))
+                self.logger.info("dev bleu_score: {} rouge_score: {}".format(bleu_score,
+                                                                             rouge_score))
 
             if not self.args.save_last_only:
                 model_file = os.path.join(self.args.model_dir,
-                                          'checkpoint_epoch_{}_EM:{}_F1:{}.pt'.format(epoch, em, f1))
+                                          'checkpoint_epoch_{}_bleu:{}_rouge:{}.pt'.format(epoch,
+                                                                                           bleu_score,
+                                                                                           rouge_score))
                 model.save(model_file, epoch)
-                if f1 > self.best_val_score:
-                    self.best_val_score = f1
+                if rouge_score > self.best_val_score:
+                    self.best_val_score = rouge_score
                     copyfile(model_file,
                              os.path.join(self.args.model_dir, 'best_model.pt'))
                     self.logger.info('[new best model saved.]')

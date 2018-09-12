@@ -14,7 +14,6 @@ class CetcEva:
             cand_sent = sample[cand_key]
             self.rouge_eval.add_inst(cand_sent, ref_sent)
             self.bleu_eval.add_inst(cand_sent, ref_sent)
-            print(idx)
         bleu_score = self.bleu_eval.get_score()
         rouge_score = self.rouge_eval.get_score()
-        print('bleu score: {}, rouge score: {}'.format(bleu_score, rouge_score))
+        return bleu_score, rouge_score

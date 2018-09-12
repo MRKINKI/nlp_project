@@ -28,10 +28,14 @@ def preprocess():
 #pre = Predict(prepro_data_path, predict_data_path)
 #pre.run(method='unformal')
 #
-a = json.load(open(predict_data_path, encoding='utf-8'))[:1000]
+#a = json.load(open(predict_data_path, encoding='utf-8'))[:1000]
 
 
 #with open(prepro_data_path, encoding='utf-8') as fin:
 #    for line in fin:
 #        sam = json.loads(line.strip())
 #        break
+
+#preds = json.load(open('./data/pred.json'))
+
+#c = preds[:1000]

@@ -6,4 +6,5 @@ import json
 if __name__ == '__main__':
     cetc_eva = CetcEva()
     data = json.load(open('./data/trad/local_all_predict.json'))
-    cetc_eva.eva(data, 'true_answer', 'extract_answer')
+    bleu_score, rouge_score = cetc_eva.eva(data, 'true_answer', 'extract_answer')
+    print('bleu score: {}, rouge score: {}'.format(bleu_score, rouge_score))
