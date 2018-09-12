@@ -14,7 +14,7 @@ import pandas as pd
 import numpy as np
 from .drqa.model import DocReaderModel
 from .drqa.utils import str2bool
-from .utils import _normalize_answer,_exact_match,_f1_score, score, BatchGen
+from .utils import _normalize_answer,_exact_match,_f1_score, score, BatchTransform
 
 
 class DrqaTrain:
@@ -22,6 +22,7 @@ class DrqaTrain:
         self.args = args
         self.logger = logging.getLogger("rc")
         self.vocab = vocab
+        self.batch_transform = BatchTransform(args)
 
     def train(self, data):
         self.logger.info('[training starts.]')
@@ -63,22 +64,24 @@ class DrqaTrain:
             # batches = BatchGen(train, opt,batch_size=args.batch_size, gpu=args.cuda)
             train_batches = data.gen_mini_batches('train', self.args.batch_size, shuffle=True)
             for i, batch in enumerate(train_batches):
-                print(len(batch))
-                break
-                # model.update(batch)
-                # if i % self.args.log_per_updates == 0:
-                #     self.logger.info('updates[{0:6}] train loss[{1:.5f}]]'.format(
-                #         model.updates, model.train_loss.avg))
+                batch = self.batch_transform.transform(batch)
+                model.update(batch)
+                if i % self.args.log_per_updates == 0:
+                    self.logger.info('updates[{0:6}] train loss[{1:.5f}]]'.format(
+                        model.updates, model.train_loss.avg))
 
-            # if epoch % self.args.eval_per_epoch == 0:
-            #     # batches = BatchGen(dev, opt, batch_size=args.batch_size, evaluation=True, gpu=args.cuda)
-            #     dev_batches = data.gen_mini_batches('dev', self.args.batch_size, shuffle=True)
-            #     predictions = []
-            #     for batch in dev_batches:
-            #         prediction, _ = model.predict(batch)
-            #         predictions.extend(prediction)
-            #     em, f1 = score(predictions, dev_y)
-            #     log.info("dev EM: {} F1: {}".format(em, f1))
+            if epoch % self.args.eval_per_epoch == 0:
+                # batches = BatchGen(dev, opt, batch_size=args.batch_size, evaluation=True, gpu=args.cuda)
+                dev_batches = data.gen_mini_batches('dev', self.args.batch_size, shuffle=True)
+                predictions = []
+                trues = []
+                for batch in dev_batches:
+                    trues.extend([sample['answer'] for sample in batch])
+                    batch = self.batch_transform.transform(batch, eva=True)
+                    prediction, _ = model.predict(batch)
+                    predictions.extend(prediction)
+                em, f1 = score(predictions, trues)
+                self.logger.info("dev EM: {} F1: {}".format(em, f1))
 
             # if not args.save_last_only or epoch == epoch_0 + args.epochs - 1:
             #     model_file = os.path.join(model_dir, 'checkpoint_epoch_{}_EM:{}_F1:{}.pt'.format(epoch,em,f1))

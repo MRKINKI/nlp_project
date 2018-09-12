@@ -5,7 +5,7 @@ import os
 import pickle
 import logging
 from dataset import BRCDataset
-from vocab import Vocab
+from vocab import DataVocabs
 from doc_reader.train import DrqaTrain
 from utils.prepro import prepro_token, train_test_split
 import sys
@@ -34,13 +34,12 @@ class args:
     resume = False
     epochs = 20
     eval_per_epoch = 1
-    resume = False
     pretrained_words = True
-    fix_embeddings = True
+    fix_embeddings = False
     tune_partial = 0
     use_qemb = True
-    num_features = 0
-    pos = False
+    num_features = 2
+    pos = True
     ner = False
     rlr = 0
     optimizer = 'adamax'
@@ -48,19 +47,21 @@ class args:
     weight_decay = 0
     learning_rate = 0.1
     momentum = 0
-    tune_partial = 0
+    tune_partial = 1000
     question_merge = 'self_attn'
     doc_layers = 3
     question_layers = 3
     hidden_size = 128
-    concat_rnn_layers = True
+    concat_rnn_layers = False
     dropout_emb = 0.3
     dropout_rnn = 0.3
     dropout_rnn_output = True
     rnn_type = 'lstm'
     rnn_padding = True
     prepare = True
-    
+    log_per_updates = 3
+    eval_per_epoch = 1
+
 def preprocess(args):
     ln = LtpNlp()
     tokenizer = ln.tokenize
@@ -68,24 +69,29 @@ def preprocess(args):
     train_test_split(args.all_file, args.train_file, args.test_file, args.train_rate)
     ln.release()
 
+
 def prepare(args):
     logger = logging.getLogger("rc")
     brc_data = BRCDataset(args.max_p_num, args.max_p_len, args.max_q_len,
                           args.train_file, args.dev_file, args.test_file)
-    vocab = Vocab(lower=True)
-    for word in brc_data.word_iter('train'):
-        vocab.add(word)
-    unfiltered_vocab_size = vocab.size()
-    vocab.filter_tokens_by_cnt(min_cnt=2)
-    filtered_num = unfiltered_vocab_size - vocab.size()
+    data_vocabs = DataVocabs()
+    for word, pos, ner in brc_data.word_iter('train'):
+        data_vocabs.word_vocab.add(word)
+        data_vocabs.pos_vocab.add(pos)
+        data_vocabs.ner_vocab.add(ner)
+    unfiltered_vocab_size = data_vocabs.word_vocab.size()
+    data_vocabs.word_vocab.filter_tokens_by_cnt(min_cnt=2)
+    filtered_num = unfiltered_vocab_size - data_vocabs.word_vocab.size()
     logger.info('After filter {} tokens, the final vocab size is {}'.format(filtered_num,
-                vocab.size()))
+                data_vocabs.word_vocab.size()))
     logger.info('Assigning embeddings...')
     # vocab.randomly_init_embeddings(args.embed_size)
-    vocab.load_pretrained_embeddings(args.embedding_path)
+    data_vocabs.word_vocab.load_pretrained_embeddings(args.embedding_path)
+    logger.info('embedding size: {}, {}'.format(len(data_vocabs.word_vocab.embeddings), 
+                                                len(data_vocabs.word_vocab.embeddings[0])))
     logger.info('Saving vocab...')
     with open(os.path.join(args.vocab_dir, 'vocab.data'), 'wb') as fout:
-        pickle.dump(vocab, fout)
+        pickle.dump(data_vocabs, fout)
     logger.info('Done with preparing!')
 
 
@@ -93,17 +99,19 @@ def train(args):
     logger = logging.getLogger("rc")
     logger.info('Load data_set and vocab...')
     with open(os.path.join(args.vocab_dir, 'vocab.data'), 'rb') as fin:
-        vocab = pickle.load(fin)
+        data_vocabs = pickle.load(fin)
+    args.pos_size = data_vocabs.pos_vocab.size()
+    args.ner_size = data_vocabs.ner_vocab.size()
     brc_data = BRCDataset(args.max_p_num, args.max_p_len, args.max_q_len,
-                          args.train_files, args.dev_files)
+                          args.train_file, args.dev_file, args.test_file)
     logger.info('Converting text into ids...')
-    brc_data.convert_to_ids(vocab)
+    brc_data.convert_to_ids(data_vocabs)
     logger.info('Initialize the model...')
-    train_batches = brc_data.gen_mini_batches('train', args.batch_size, shuffle=True)
-    for batch in train_batches:
-        # print(batch)
-        break
-    rc_model = DrqaTrain(vocab, args)
+#    train_batches = brc_data.gen_mini_batches('train', args.batch_size, shuffle=True)
+#    for batch in train_batches:
+#        print(len(batch), batch[0])
+#        break
+    rc_model = DrqaTrain(data_vocabs.word_vocab, args)
     logger.info('Training the model...')
     rc_model.train(brc_data)
 #    rc_model.train(brc_data, args.epochs, args.batch_size, save_dir=args.model_dir,
@@ -183,18 +191,19 @@ def run():
     logger.info('Running with args : {}'.format(args))
 
 #    args.prepare = True
-
-    if args.prepare:
-        prepare(args)
+#
+#    if args.prepare:
+#        prepare(args)
 #        preprocess(args)
-#    if args.train:
-#        train(args)
+    if args.train:
+        train(args)
     # if args.evaluate:
     #     evaluate(args)
     # if args.predict:
     #     predict(args)
 
+
 if __name__ == '__main__':
     # prepare(args)
-    # batch = train(args)
+    #batch = train(args)
     run()

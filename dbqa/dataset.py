@@ -83,18 +83,18 @@ class BRCDataset(object):
             batch_data = {}
             batch_data['question_word_ids'] = sample['question_word_ids']
             batch_data['context_word_ids'] = sample['context_word_ids']
-            batch_data['start_id'] = sample['answer_start']
-            batch_data['end_id'] = sample['answer_end']
+            batch_data['context_word'] = sample['context_word']
             batch_data['context_ner_ids'] = sample['context_ner_ids']
-            batch_data['context_pos_ids'] = sample['context_pos_ids'] 
-            batch_data['context_em'] = sample['context_em']
-            batch_data['context_freq'] = sample['context_freq']
-#            if 'answer_spans' in sample:
-#                batch_data['start_id'] = sample['answer_spans'][0]
-#                batch_data['end_id'] = sample['answer_spans'][1]
-#            else:
-#                batch_data['start_id'] = 0
-#                batch_data['end_id'] = 0
+            batch_data['context_pos_ids'] = sample['context_pos_ids']
+            batch_data['context_feature'] = sample['context_feature'] 
+            if 'answer_spans' in sample:
+                batch_data['start_id'] = sample['answer_start']
+                batch_data['end_id'] = sample['answer_end']
+                batch_data['answer'] = sample['answer']
+            else:
+                batch_data['start_id'] = 0
+                batch_data['end_id'] = 0
+                batch_data['answer'] = ''
             batches.append(batch_data)
         return batches
 

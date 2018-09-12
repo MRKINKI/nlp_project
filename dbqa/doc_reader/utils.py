@@ -1,94 +1,72 @@
 # -*- coding: utf-8 -*-
 
 import re
-import numpy as np
-import pandas as pd
-import collections
 from collections import Counter
 import string
 import torch
 import random
 
 
-class BatchGen:
-    def __init__(self, data,opt ,batch_size, gpu, evaluation=False):
-        '''
-        input:
-            data - list of lists
-            batch_size - int
-        '''
-        self.batch_size = batch_size
-        self.eval = evaluation
-        self.gpu = gpu
-        self.opt = opt
-        # shuffle
-        if not evaluation:
-            indices = list(range(len(data)))
-            random.shuffle(indices)
-            data = [data[i] for i in indices]
-        # chunk into batches
-        data = [data[i:i + batch_size] for i in range(0, len(data), batch_size)]
-        self.data = data
+class BatchTransform:
+    def __init__(self, args):
+        self.opt = args.__dict__
 
-    def __len__(self):
-        return len(self.data)
+    def transform(self, batch, eva=False):
+        batch_size = len(batch)
 
-    def __iter__(self):
-        for batch in self.data:
-            batch_size = len(batch)
-            batch = list(zip(*batch))
-            if self.eval:
-                assert len(batch) == 6
-            else:
-                assert len(batch) == 8
+        max_context_len = max(len(sample['context_word_ids']) for sample in batch)
+        context_id = torch.LongTensor(batch_size, max_context_len).fill_(0)
+        for i, sample in enumerate(batch):
+            context_word_ids = sample['context_word_ids']
+            context_id[i, :len(context_word_ids)] = torch.LongTensor(context_word_ids)
 
-            context_len = max(len(x) for x in batch[0])
-            context_id = torch.LongTensor(batch_size, context_len).fill_(0)
-            for i, doc in enumerate(batch[0]):
-                context_id[i, :len(doc)] = torch.LongTensor(doc)
+        feature_len = len(batch[0]['context_feature'][0])
+        context_feature = torch.Tensor(batch_size, max_context_len, feature_len).fill_(0)
+        for i, sample in enumerate(batch):
+            context_feature_raw = sample['context_feature']
+            for j, feature in enumerate(context_feature_raw):
+                context_feature[i, j, :] = torch.Tensor(feature)
 
-            feature_len = len(batch[1][0][0])
-            context_feature = torch.Tensor(batch_size, context_len, feature_len).fill_(0)
-            for i, doc in enumerate(batch[1]):
-                for j, feature in enumerate(doc):
-                    context_feature[i, j, :] = torch.Tensor(feature)
+        context_pos = torch.Tensor(batch_size, max_context_len, self.opt['pos_size']).fill_(0)
+        for i, sample in enumerate(batch):
+            context_pos_raw = sample['context_pos_ids']
+            for j, pos in enumerate(context_pos_raw):
+                context_pos[i, j, pos] = 1
 
-            context_tag = torch.Tensor(batch_size, context_len, self.opt['pos_size']).fill_(0)
-            for i, doc in enumerate(batch[2]):
-                for j, tag in enumerate(doc):
-                    context_tag[i, j, tag] = 1
-                        
-            context_ent = torch.Tensor(batch_size, context_len, self.opt['ner_size']).fill_(0)
-            for i, doc in enumerate(batch[3]):
-                for j, ent in enumerate(doc):
-                    context_ent[i, j, ent] = 1
+        context_ner = torch.Tensor(batch_size, max_context_len, self.opt['ner_size']).fill_(0)
+        for i, sample in enumerate(batch):
+            context_ner_raw = sample['context_ner_ids']
+            for j, ner in enumerate(context_ner_raw):
+                context_ner[i, j, ner] = 1
 #                context_ent[i, :len(doc)] = torch.LongTensor(doc)
-                
-            question_len = max(len(x) for x in batch[4])
-            question_id = torch.LongTensor(batch_size, question_len).fill_(0)
-            for i, doc in enumerate(batch[4]):
-                question_id[i, :len(doc)] = torch.LongTensor(doc)
 
-            context_mask = torch.eq(context_id, 0)
-            question_mask = torch.eq(question_id, 0)
-            if not self.eval:
-                y_s = torch.LongTensor([int(t) for t in batch[5]])
-                y_e = torch.LongTensor([int(t) for t in batch[6]])
-            text = list(batch[-1])
-            if self.gpu:
-                context_id = context_id.pin_memory()
-                context_feature = context_feature.pin_memory()
-                context_tag = context_tag.pin_memory()
-                context_ent = context_ent.pin_memory()
-                context_mask = context_mask.pin_memory()
-                question_id = question_id.pin_memory()
-                question_mask = question_mask.pin_memory()
-            if self.eval:
-                yield (context_id, context_feature, context_tag, context_ent, context_mask,
-                       question_id, question_mask, text)
-            else:
-                yield (context_id, context_feature, context_tag, context_ent, context_mask,
-                       question_id, question_mask, y_s, y_e, text)
+        max_question_len = max(len(sample['question_word_ids']) for sample in batch)
+        question_id = torch.LongTensor(batch_size, max_question_len).fill_(0)
+        for i, sample in enumerate(batch):
+            question_word_ids = sample['question_word_ids']
+            question_id[i, :len(question_word_ids)] = torch.LongTensor(question_word_ids)
+
+        context_mask = torch.eq(context_id, 0)
+        question_mask = torch.eq(question_id, 0)
+        if not eva:
+            y_s = torch.LongTensor([int(sample['start_id']) for sample in batch])
+            y_e = torch.LongTensor([int(sample['end_id']) for sample in batch])
+        text = [sample['context_word'] for sample in batch]
+        if self.opt['cuda']:
+            context_id = context_id.pin_memory()
+            context_feature = context_feature.pin_memory()
+            context_pos = context_pos.pin_memory()
+            context_ner = context_ner.pin_memory()
+            context_mask = context_mask.pin_memory()
+            question_id = question_id.pin_memory()
+            question_mask = question_mask.pin_memory()
+        if eva:
+            return (context_id, context_feature, context_pos, context_ner, context_mask,
+                    question_id, question_mask, text)
+        else:
+            return (context_id, context_feature, context_pos, context_ner, context_mask,
+                    question_id, question_mask, y_s, y_e, text)
+
 
 def _normalize_answer(s):
     def remove_articles(text):
@@ -108,9 +86,6 @@ def _normalize_answer(s):
 
 
 def _exact_match(pred, answers):
-    '''
-    计算EM
-    '''
     if pred is None or answers is None:
         return False
     pred = _normalize_answer(pred)
@@ -119,10 +94,8 @@ def _exact_match(pred, answers):
             return True
     return False
 
+
 def _f1_score(pred, answers):
-    '''
-    计算F1
-    '''
     def _score(g_tokens, a_tokens):
         common = Counter(g_tokens) & Counter(a_tokens)
         num_same = sum(common.values())
@@ -140,6 +113,7 @@ def _f1_score(pred, answers):
     #scores = [_score(g_tokens, _normalize_answer(a).split()) for a in answers]
     scores = [_score(g_tokens, [t for t in _normalize_answer(a)]) for a in answers]
     return max(scores)
+
 
 def score(pred, truth):
     assert len(pred) == len(truth)

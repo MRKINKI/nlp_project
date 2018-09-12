@@ -20,8 +20,9 @@ class FeatureExtract:
         question_words, context_words = sample['question_tokens']['cws'], \
                                         sample['most_related_para']['cws']
         freq, em = self.get_context_feature(question_words, context_words)
-        new_sample['context_freq'] = freq
-        new_sample['context_em'] = em
+        # new_sample['context_freq'] = freq
+        # new_sample['context_em'] = em
+        new_sample['context_feature'] = list(zip(freq, em))
         new_sample['context_word'] = sample['most_related_para']['cws']
         new_sample['context_ner'] = sample['most_related_para']['ner']
         new_sample['context_pos'] = sample['most_related_para']['pos']
@@ -31,6 +32,7 @@ class FeatureExtract:
         new_sample['answer_spans'] = sample['answer_spans']
         new_sample['answer_start'] = sample['answer_spans'][0]
         new_sample['answer_end'] = sample['answer_spans'][1]
+        new_sample['answer'] = sample['answer']
         return new_sample
 
 
