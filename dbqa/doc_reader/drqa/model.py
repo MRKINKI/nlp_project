@@ -138,14 +138,11 @@ class DocReaderModel(object):
                 'optimizer': self.optimizer.state_dict(),
                 'updates': self.updates
             },
-            'config': self.opt,
+            'config': str(self.opt),
             'epoch': epoch
         }
-        try:
-            torch.save(params, filename)
-            logger.info('model saved to {}'.format(filename))
-        except BaseException:
-            logger.warn('[ WARN: Saving failed... continuing anyway. ]')
+        torch.save(params, filename)
+        logger.info('model saved to {}'.format(filename))
 
     def cuda(self):
         self.network.cuda()

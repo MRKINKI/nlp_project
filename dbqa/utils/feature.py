@@ -18,14 +18,15 @@ class FeatureExtract:
     def extract(self, sample):
         new_sample = {}
         question_words, context_words = sample['question_tokens']['cws'], \
-                                        sample['most_related_para']['cws']
+                                        sample['most_related_para']['cws'][:500]
         freq, em = self.get_context_feature(question_words, context_words)
         # new_sample['context_freq'] = freq
         # new_sample['context_em'] = em
         new_sample['context_feature'] = list(zip(freq, em))
-        new_sample['context_word'] = sample['most_related_para']['cws']
-        new_sample['context_ner'] = sample['most_related_para']['ner']
-        new_sample['context_pos'] = sample['most_related_para']['pos']
+        
+        new_sample['context_word'] = sample['most_related_para']['cws'][:500]
+        new_sample['context_ner'] = sample['most_related_para']['ner'][:500]
+        new_sample['context_pos'] = sample['most_related_para']['pos'][:500]
         new_sample['question_word'] = sample['question_tokens']['cws']
         new_sample['question_ner'] = sample['question_tokens']['ner']
         new_sample['question_pos'] = sample['question_tokens']['pos']
@@ -38,10 +39,16 @@ class FeatureExtract:
 
 if __name__ == '__main__':
     path = '../data/cetc/train.json'
+    spans = []
     with open(path, encoding='utf-8') as fin:
         for line in fin:
             sam = json.loads(line.strip())
             break
+#            for qa_sample in sam['questions']:
+#                if qa_sample['bad_sample'] == 0 and qa_sample['find_answer'] == 1:
+#                    answer_span = qa_sample['answer_spans']
+#                    spans.append(answer_span[-1])
+
     qa_sample = sam['questions'][0]
     q_words, c_words = qa_sample['question_tokens']['cws'], qa_sample['most_related_para']['cws']
     fea = FeatureExtract()

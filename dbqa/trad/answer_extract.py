@@ -17,11 +17,13 @@ class AnswerExtract:
         mid_idxes = sorted(mid_idxes)
         return mid_idxes
     
-    def extract(self, text, question):
-        match_idxes, unmatch_idxes = self.alignment_model(text, question)
+    def extract(self, text_tokens, question_tokens):
+        text_words = text_tokens['cws']
+        question_words = question_tokens['cws']
+        match_idxes, unmatch_idxes = self.alignment_model(text_words, question_words)
         mid_idxes = self.get_mid_idxes(match_idxes, unmatch_idxes)
         if not unmatch_idxes:
-            other_unmatch_idxes = list(range(match_idxes[-1]+1, len(text)))
+            other_unmatch_idxes = list(range(match_idxes[-1]+1, len(text_words)))
             if not other_unmatch_idxes:
                 other_unmatch_idxes = list(range(0,match_idxes[0]))
             unmatch_idxes.append(other_unmatch_idxes)
@@ -29,4 +31,4 @@ class AnswerExtract:
             answer_idxes = mid_idxes
         else:
             answer_idxes = unmatch_idxes[-1]
-        return ''.join([text[t] for t in answer_idxes])
+        return ''.join([text_words[t] for t in answer_idxes])

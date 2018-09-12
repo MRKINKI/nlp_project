@@ -17,15 +17,17 @@ class Question2text:
         pass
     
     # @deco
-    def find_best_question_match(self, chunks, question, with_score=False):
+    def find_best_question_match(self, all_chunk_tokens, question_tokens, with_score=False):
         most_related_chunk_idx = -1
         max_related_score = 0
         most_related_chunk_len = 0
-        for p_idx, chunk_tokens in enumerate(chunks):
-            if len(question) > 0:
+        question_words = question_tokens['cws']
+        for p_idx, chunk_tokens in enumerate(all_chunk_tokens):
+            chunk_words = chunk_tokens['cws']
+            if len(question_words) > 0:
                 related_score = self.metric_max_over_ground_truths(self.recall,
-                                                                   chunk_tokens,
-                                                                   question)
+                                                                   chunk_words,
+                                                                   question_words)
             else:
                 related_score = 0
     
@@ -39,7 +41,7 @@ class Question2text:
             most_related_chunk_idx = 0
         if with_score:
             return most_related_chunk_idx, max_related_score
-        return chunks[most_related_chunk_idx]
+        return all_chunk_tokens[most_related_chunk_idx]
         
     def precision_recall_f1(self, prediction, ground_truth):
         if not isinstance(prediction, list):

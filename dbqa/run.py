@@ -23,6 +23,7 @@ class args:
     train_file = './data/cetc/train.json'
     test_file = './data/cetc/test.json'
     dev_file = './data/cetc/test.json'
+    model_dir = './data/cetc/model'
     embed_size = 100
     embedding_dim = 100
     embedding_path = './data/embedding/sogou2012.emb'
@@ -52,7 +53,7 @@ class args:
     doc_layers = 3
     question_layers = 3
     hidden_size = 128
-    concat_rnn_layers = False
+    concat_rnn_layers = True
     dropout_emb = 0.3
     dropout_rnn = 0.3
     dropout_rnn_output = True
@@ -61,6 +62,9 @@ class args:
     prepare = True
     log_per_updates = 3
     eval_per_epoch = 1
+    max_len = 100
+    save_last_only = False
+
 
 def preprocess(args):
     ln = LtpNlp()

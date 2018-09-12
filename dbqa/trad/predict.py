@@ -21,20 +21,22 @@ class Predict:
     
     def predict(self, sample):
         result = []
-        chunks = sample['sentences_token']
+        chunks = sample['sentences_tokens']
         for q in sample['questions']:
-            q_tokens = q['question_token']
-            q_type = q['question_type']
-            a_tokens = q['answer_token']
-
-            mrc = self.qt.find_best_question_match(chunks, q_tokens)
+            if q['bad_sample'] == 0:
+                q_tokens = q['question_tokens']
+                q_type = q['question_type']
+                a_tokens = q['answer_tokens']
+                mrc = self.qt.find_best_question_match(chunks, q_tokens)
+            else:
+                print(q)
             try:
                 answer = self.answer_extract.extract(mrc, q_tokens)
             except:
                 answer = sample['article_title']
-            result.append({'q':' '.join(q_tokens), 
-                           'mrc':' '.join(mrc), 
-                           'true_answer': ''.join(a_tokens), 
+            result.append({'q':' '.join(q_tokens['cws']), 
+                           'mrc':' '.join(mrc['cws']), 
+                           'true_answer': ''.join(a_tokens['cws']), 
                            'extract_answer': answer,
                            'q_type': q_type})
         return result
@@ -66,5 +68,6 @@ class Predict:
                 all_result.append(self.predict_formal(sample))
             else:
                 all_result.extend(self.predict(sample))
-            print(idx)
+            if idx%1000 == 0:
+                print(idx)
         json.dump(all_result, open(self.output_path, 'w', encoding='utf-8'))
