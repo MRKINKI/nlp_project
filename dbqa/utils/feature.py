@@ -15,7 +15,7 @@ class FeatureExtract:
         extract_match_feature = [t in question_words for t in context_words]
         return frequence_feature, extract_match_feature
         
-    def extract(self, sample):
+    def extract(self, sample, predict=False):
         new_sample = {}
         question_words, context_words = sample['question_tokens']['cws'], \
                                         sample['most_related_para']['cws'][:500]
@@ -30,10 +30,12 @@ class FeatureExtract:
         new_sample['question_word'] = sample['question_tokens']['cws']
         new_sample['question_ner'] = sample['question_tokens']['ner']
         new_sample['question_pos'] = sample['question_tokens']['pos']
-        new_sample['answer_spans'] = sample['answer_spans']
-        new_sample['answer_start'] = sample['answer_spans'][0]
-        new_sample['answer_end'] = sample['answer_spans'][1]
-        new_sample['answer'] = sample['answer']
+        new_sample['qa_id'] = sample['questions_id']
+        if not predict:
+            new_sample['answer_spans'] = sample['answer_spans']
+            new_sample['answer_start'] = sample['answer_spans'][0]
+            new_sample['answer_end'] = sample['answer_spans'][1]
+            new_sample['answer'] = sample['answer']
         return new_sample
 
 

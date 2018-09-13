@@ -9,7 +9,10 @@ import random
 
 class BatchTransform:
     def __init__(self, args):
-        self.opt = args.__dict__
+        if not isinstance(args, dict):
+            self.opt = args.__dict__
+        else:
+            self.opt = args
 
     def transform(self, batch, eva=False):
         batch_size = len(batch)

@@ -8,6 +8,7 @@ import argparse
 from shutil import copyfile
 import json
 import torch
+import json
 import msgpack
 import pandas as pd
 import numpy as np
@@ -15,19 +16,20 @@ from .drqa.model import DocReaderModel
 from .drqa.utils import str2bool
 from .utils import _normalize_answer,_exact_match,_f1_score, score, BatchTransform
 from evaluate.cetc_evaluate.main import CetcEva
+import pickle
 
 
 class DrqaModel:
     def __init__(self, vocab, args=None, eva=False):
         self.args = args
         self.logger = logging.getLogger("rc")
-        self.batch_transform = BatchTransform(args)
         self.best_val_score = 0
         self.cetc_eva = CetcEva()
         embedding = torch.Tensor(list(vocab.embeddings))
         if eva:
             checkpoint = torch.load(os.path.join(self.args.model_dir, self.args.resume_file))
             state_dict = checkpoint['state_dict']
+            # self.args = checkpoint['config']
             self.model = DocReaderModel(self.args, embedding, state_dict)
         elif self.args.resume:
             self.logger.info('[loading previous model...]')
@@ -40,7 +42,8 @@ class DrqaModel:
             self.model = DocReaderModel(self.args, embedding)
         if self.args.cuda:
             self.model.cuda()
-        
+        self.batch_transform = BatchTransform(self.args)
+
     def train(self, data):
         self.logger.info('[training starts.]')
         self.logger.info('[train_length:%d dev_length:%d]' % (len(data.train_set),
@@ -95,3 +98,8 @@ class DrqaModel:
         # json.dump(predicts, open('./data/pred.json', 'w'))
         self.logger.info("dev bleu_score: {} rouge_score: {}".format(bleu_score,
                                                                      rouge_score))
+
+    def predict(self, batch):
+        transform_batch = self.batch_transform.transform(batch, eva=True)
+        predictions, scores = self.model.predict(transform_batch)
+        return predictions, scores

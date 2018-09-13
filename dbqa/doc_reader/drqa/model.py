@@ -8,7 +8,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 import numpy as np
 import logging
-import json
+import pickle
 
 from torch.autograd import Variable
 from .utils import AverageMeter
@@ -23,9 +23,12 @@ class DocReaderModel(object):
     """
 
     def __init__(self, opt, embedding=None, state_dict=None):
-
-        self.opt = opt.__dict__
-        opt = opt.__dict__
+        if not isinstance(opt, dict):
+            self.opt = opt.__dict__
+            opt = opt.__dict__
+        else:
+            self.opt = opt
+            opt = opt
         self.updates = state_dict['updates'] if state_dict else 0
         self.train_loss = AverageMeter()
 
@@ -91,7 +94,7 @@ class DocReaderModel(object):
         self.reset_parameters()
 
     def predict(self, ex):
-        #评估模式
+        # 评估模式
         self.network.eval()
 
         if self.opt['cuda']:
@@ -100,17 +103,16 @@ class DocReaderModel(object):
         else:
             inputs = [Variable(e, volatile=True) for e in ex[:7]]
 
-
         score_s, score_e = self.network(*inputs)
 
         # Transfer to CPU/normal tensors for numpy ops
         score_s = score_s.data.cpu()
         score_e = score_e.data.cpu()
 
-        #获得文档分过词的文本数据
+        # 获得文档分过词的文本数据
         text = ex[-1]
         
-        #预测文档中词作为答案初始及结束的概率
+        # 预测文档中词作为答案初始及结束的概率
         predictions = []
         max_scores = []
         max_len = self.opt['max_len'] or score_s.size(1)
@@ -122,7 +124,7 @@ class DocReaderModel(object):
             max_scores.append(np.max(scores))
             predictions.append(''.join(text[i][s_idx:e_idx+1]))
 
-        return predictions,max_scores
+        return predictions, max_scores
 
     def reset_parameters(self):
         # Reset fixed embeddings to original value

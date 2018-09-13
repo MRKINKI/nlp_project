@@ -65,10 +65,11 @@ class args:
     eval_per_epoch = 1
     max_len = 100
     save_last_only = False
-    resume = False
+    resume = True
     resume_file = 'best_model.pt'
     predict = True
     resume_options = False
+    args_file = './data/cetc/args.pkl'
 
 
 def preprocess(args):
@@ -115,12 +116,10 @@ def train(args):
                           args.train_file, args.dev_file, args.test_file)
     logger.info('Converting text into ids...')
     brc_data.convert_to_ids(data_vocabs)
+    logger.info('Saving the args')
+    pickle.dump(args, open(args.args_file, 'wb'))
     logger.info('Initialize the model...')
-#    train_batches = brc_data.gen_mini_batches('train', args.batch_size, shuffle=True)
-#    for batch in train_batches:
-#        print(len(batch), batch[0])
-#        break
-    rc_model = DrqaTrain(data_vocabs.word_vocab, args)
+    rc_model = DrqaModel(data_vocabs.word_vocab, args)
     logger.info('Training the model...')
     rc_model.train(brc_data)
 #    rc_model.train(brc_data, args.epochs, args.batch_size, save_dir=args.model_dir,
@@ -163,14 +162,19 @@ def predict(args):
     with open(os.path.join(args.vocab_dir, 'vocab.data'), 'rb') as fin:
         data_vocabs = pickle.load(fin)
     assert args.test_file, 'No test files are provided.'
-    args.pos_size = data_vocabs.pos_vocab.size()
-    args.ner_size = data_vocabs.ner_vocab.size()
     brc_data = BRCDataset(args.max_p_num, args.max_p_len, args.max_q_len,
                           test_file=args.test_file)
     logger.info('Converting text into ids...')
     brc_data.convert_to_ids(data_vocabs)
     logger.info('Restoring the model...')
-    rc_model = DrqaModel(data_vocabs.word_vocab, args, eva=True)
+
+    args = pickle.load(open(args.args_file, 'rb'))
+    args.pos_size = data_vocabs.pos_vocab.size()
+    args.ner_size = data_vocabs.ner_vocab.size()
+
+    rc_model = DrqaModel(data_vocabs.word_vocab,
+                         args,
+                         eva=True)
     rc_model.evaluate(brc_data)
     # rc_model = RCModel(vocab, args)
     # rc_model.restore(model_dir=args.model_dir, model_prefix=args.algo)
@@ -208,12 +212,12 @@ def run():
 #    if args.prepare:
 #        prepare(args)
 #        preprocess(args)
-    if args.train:
-        train(args)
+#     if args.train:
+#         train(args)
     # if args.evaluate:
     #     evaluate(args)
-#    if args.predict:
-#        predict(args)
+    if args.predict:
+        predict(args)
 
 
 if __name__ == '__main__':

@@ -49,9 +49,6 @@ class BRCDataset(object):
             self.test_set = self._load_dataset(test_file)
         self.logger.info('train_set size: {}'.format(len(self.train_set)))
         self.logger.info('dev_set size: {}'.format(len(self.dev_set)))
-#        if test_files:
-#            for test_file in test_files:
-#                self.test_set += self._load_dataset(test_file)
 
     def _load_dataset(self, data_path, train=False):
         """
@@ -59,7 +56,7 @@ class BRCDataset(object):
         Args:
             data_path: the data file to load
         """
-        with open(data_path,encoding = 'utf8') as fin:
+        with open(data_path, encoding='utf8') as fin:
             data_set = []
             for idx, line in enumerate(fin):
                 sample = json.loads(line.strip())
