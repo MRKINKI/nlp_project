@@ -18,7 +18,7 @@ if __name__ == '__main__':
     # mrc = qt.find_best_question_match(sam['paragraphs_tokens'], sam['questions'][0]['question_tokens'])
     
     data_path = './data/cetc/test.json'
-    data_path = './data/cetc/all.json'
+    # data_path = './data/cetc/all.json'
     output_path = './data/deep/origin_predict.json'
     args_file = './data/cetc/args.pkl'
     args = pickle.load(open(args_file, 'rb'))
@@ -31,9 +31,9 @@ if __name__ == '__main__':
                          args,
                          eva=True)
     pred = Predict(data_path, output_path, data_vocabs, rc_model)
-    pred.predict_formal()
-    # pred.run()
-    # pred.get_format_json()
+    # pred.predict_formal()
+    pred.run()
+    pred.get_format_json()
     # batch = pred.get_batch(sam)
     # pred.predict(sam)
     # pred.non_find_answer()
