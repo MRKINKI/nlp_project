@@ -16,9 +16,9 @@ from ltpnlp import LtpNlp
 
 class args:
     max_p_num = 1
-    max_p_len = 500
+    max_p_len = 1000
     max_q_len = 30
-    train_rate = 0.8
+    train_rate = 0.99
     raw_file = './data/cetc/question.json'
     all_file = './data/cetc/all.json'
     train_file = './data/cetc/train.json'
@@ -65,7 +65,7 @@ class args:
     eval_per_epoch = 1
     max_len = 100
     save_last_only = False
-    resume = True
+    resume = False
     resume_file = 'best_model.pt'
     predict = True
     resume_options = False
@@ -75,13 +75,22 @@ class args:
 def preprocess(args):
     ln = LtpNlp()
     tokenizer = ln.tokenize
-    prepro_token(args.raw_file, args.all_file, tokenizer, extract_sample=True, chunk='paragraphs')
-    train_test_split(args.all_file, args.train_file, args.test_file, args.train_rate)
+    prepro_token(args.raw_file, args.all_file, tokenizer, extract_sample=True, chunk='paragraphs', maxlen=1000)
+    # train_test_split(args.all_file, args.train_file, args.test_file, args.train_rate)
+    ln.release()
+    
+def preprocess_test():
+    ln = LtpNlp()
+    tokenizer = ln.tokenize
+    prepro_token('./data/cetc/cheshi.json', './data/cetc/all_test.json', tokenizer, extract_sample=False, chunk='paragraphs', maxlen=1000)
+    # train_test_split(args.all_file, args.train_file, args.test_file, args.train_rate)
     ln.release()
 
 
 def prepare(args):
     logger = logging.getLogger("rc")
+    logger.info('train test split...')
+    train_test_split(args.all_file, args.train_file, args.test_file, args.train_rate)
     brc_data = BRCDataset(args.max_p_num, args.max_p_len, args.max_q_len,
                           args.train_file, args.dev_file, args.test_file)
     data_vocabs = DataVocabs()
@@ -122,10 +131,7 @@ def train(args):
     rc_model = DrqaModel(data_vocabs.word_vocab, args)
     logger.info('Training the model...')
     rc_model.train(brc_data)
-#    rc_model.train(brc_data, args.epochs, args.batch_size, save_dir=args.model_dir,
-#                   save_prefix=args.algo,
-#                   dropout_keep_prob=args.dropout_keep_prob)
-#    logger.info('Done with model training!')
+
 
 
 def evaluate(args):
@@ -185,6 +191,18 @@ def predict(args):
     #                   result_dir=args.result_dir, result_prefix='test.predicted')
 
 
+def multi(start, end):
+    for i in range(start, end+1):
+        sub_model_dir = 'model' + str(i)
+        sub_adr = os.path.join('./data/cetc/model', sub_model_dir)
+        if not os.path.exists(sub_adr):
+            os.makedirs(sub_adr)
+        args.vocab_dir = sub_adr
+        args.args_file = os.path.join(sub_adr, 'args.pkl')
+        args.model_dir = sub_adr
+        prepare(args)
+        train(args)
+
 def run():
     """
     Prepares and runs the whole system.
@@ -209,18 +227,20 @@ def run():
 
 #    args.prepare = True
 #
-#    if args.prepare:
-#        prepare(args)
-#        preprocess(args)
+    # if args.prepare:
+    #     prepare(args)
+#
 #     if args.train:
 #         train(args)
     # if args.evaluate:
     #     evaluate(args)
-    if args.predict:
-        predict(args)
-
+    # if args.predict:
+    #     predict(args)
+    multi(4, 10)
+    # preprocess(args)
 
 if __name__ == '__main__':
     # prepare(args)
     #batch = train(args)
+    #preprocess_test()
     run()

@@ -116,6 +116,7 @@ class DocReaderModel(object):
         predictions = []
         max_scores = []
         max_len = self.opt['max_len'] or score_s.size(1)
+        score_matrices = []
         for i in range(score_s.size(0)):
             scores = torch.ger(score_s[i], score_e[i])
             scores.triu_().tril_(max_len - 1)
@@ -123,8 +124,8 @@ class DocReaderModel(object):
             s_idx, e_idx = np.unravel_index(np.argmax(scores), scores.shape)
             max_scores.append(np.max(scores))
             predictions.append(''.join(text[i][s_idx:e_idx+1]))
-
-        return predictions, max_scores
+            score_matrices.append(scores)
+        return predictions, max_scores, score_matrices
 
     def reset_parameters(self):
         # Reset fixed embeddings to original value

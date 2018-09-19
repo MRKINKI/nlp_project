@@ -64,7 +64,7 @@ class DrqaModel:
                 predicts = []
                 for batch in dev_batches:
                     transform_batch = self.batch_transform.transform(batch, eva=True)
-                    prediction, _ = self.model.predict(transform_batch)
+                    prediction, _, _ = self.model.predict(transform_batch)
                     for idx, pred in enumerate(prediction):
                         batch[idx]['pred'] = pred
                     predicts.extend(batch)
@@ -101,5 +101,5 @@ class DrqaModel:
 
     def predict(self, batch):
         transform_batch = self.batch_transform.transform(batch, eva=True)
-        predictions, scores = self.model.predict(transform_batch)
-        return predictions, scores
+        predictions, scores, score_matrices = self.model.predict(transform_batch)
+        return predictions, scores, score_matrices

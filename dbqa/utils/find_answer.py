@@ -32,7 +32,7 @@ def metric_max_over_ground_truths(metric_fn, prediction, ground_truth):
     score = metric_fn(prediction, ground_truth)
     return score
 
-def find_answer(paragraphs, qa_sample):
+def find_answer(paragraphs, qa_sample, maxlen):
     most_related_para_idx = -1
     most_related_para_len = 999999
     max_related_score = 0
@@ -59,7 +59,7 @@ def find_answer(paragraphs, qa_sample):
     #answer_tokens = set()
     answer_words_set = set(answer_words)
     if qa_sample['most_related_para_idx'] != -1:
-        most_related_para_words = paragraph_words[most_related_para_idx][:500]
+        most_related_para_words = paragraph_words[most_related_para_idx][:maxlen]
         for start_tidx in range(len(most_related_para_words)):
             if most_related_para_words[start_tidx] not in answer_words_set:
                 continue
@@ -87,13 +87,13 @@ def find_answer(paragraphs, qa_sample):
         qa_sample['find_answer'] = 0
 
         
-def get_sample(sample):
+def get_sample(sample, maxlen):
     #samples = []
     #paragraphs = [p['cws'] for p in sample['paragraphs_tokens']]
     paragraphs = sample['paragraphs_tokens']
     for qa_sample in sample['questions']:
         if qa_sample['bad_sample'] == 0:
-            find_answer(paragraphs, qa_sample)
+            find_answer(paragraphs, qa_sample, maxlen)
         #samples.append(new_sample)
     return sample        
         

@@ -18,15 +18,15 @@ class FeatureExtract:
     def extract(self, sample, predict=False):
         new_sample = {}
         question_words, context_words = sample['question_tokens']['cws'], \
-                                        sample['most_related_para']['cws'][:500]
+                                        sample['most_related_para']['cws'][:1000]
         freq, em = self.get_context_feature(question_words, context_words)
         # new_sample['context_freq'] = freq
         # new_sample['context_em'] = em
         new_sample['context_feature'] = list(zip(freq, em))
         
-        new_sample['context_word'] = sample['most_related_para']['cws'][:500]
-        new_sample['context_ner'] = sample['most_related_para']['ner'][:500]
-        new_sample['context_pos'] = sample['most_related_para']['pos'][:500]
+        new_sample['context_word'] = sample['most_related_para']['cws'][:1000]
+        new_sample['context_ner'] = sample['most_related_para']['ner'][:1000]
+        new_sample['context_pos'] = sample['most_related_para']['pos'][:1000]
         new_sample['question_word'] = sample['question_tokens']['cws']
         new_sample['question_ner'] = sample['question_tokens']['ner']
         new_sample['question_pos'] = sample['question_tokens']['pos']

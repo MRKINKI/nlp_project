@@ -52,11 +52,11 @@ def get_sentences(sample):
     sample['sentences'] = sentences
     
     
-def build_samples(sample):
-    return get_sample(sample)
+def build_samples(sample, maxlen):
+    return get_sample(sample, maxlen)
     
 
-def prepro_token(infile, outfile, tokenizer, extract_sample=False, chunk='sentences'):
+def prepro_token(infile, outfile, tokenizer, extract_sample=False, chunk='sentences', maxlen=500):
     origin_data = json.load(open(infile, encoding='utf-8'))
     with open(outfile, 'w', encoding='utf-8') as fout:
         for idx, sample in enumerate(origin_data):
@@ -70,9 +70,10 @@ def prepro_token(infile, outfile, tokenizer, extract_sample=False, chunk='senten
                 get_sentences(sample)
             tokenize_dict(tokenizer, sample, [chunk])
             for question in sample['questions']:
-                tokenize_dict(tokenizer, question, ['answer', 'question'])
+                tokenize_dict(tokenizer, question, ['question'])
+                #tokenize_dict(tokenizer, question, ['answer', 'question'])
             if extract_sample:
-                sample = build_samples(sample)
+                sample = build_samples(sample, maxlen)
 #                new_samples = build_samples(sample)
 #                for n_sample in new_samples:
 #                    fout.write(json.dumps(n_sample, ensure_ascii=False)+'\n')
@@ -92,11 +93,11 @@ def train_test_split(all_data_file, trainfile, testfile, train_rate):
         for idx, line in enumerate(fin):
             sample = json.loads(line.strip())
             all_samples.append(sample)
-    print(len(all_samples))
+    # print(len(all_samples))
     np.random.shuffle(all_samples)
     size = len(all_samples)
     train_data = all_samples[:int(size*train_rate)]
-    test_data =   all_samples[int(size*train_rate):] 
+    test_data = all_samples[int(size*train_rate):]
     save_file(train_data, trainfile)
     save_file(test_data, testfile)          
 

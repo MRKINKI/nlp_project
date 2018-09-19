@@ -3,6 +3,7 @@ from collections import Counter
 import datetime 
 from .sim import F1, Alignment
 
+
 def deco(func):
     def wrapper(*args, **kwargs):
         startTime = datetime.datetime.now()
@@ -12,6 +13,7 @@ def deco(func):
         msec = cost_time.total_seconds()*1000
         print("time is %f ms" %msec)
     return wrapper
+
 
 class Question2text:
     def __init__(self):
@@ -23,18 +25,21 @@ class Question2text:
                                  all_chunk_tokens, 
                                  question_tokens, 
                                  with_score=False, 
-                                 method='f1'):
+                                 method='f1',
+                                 topk=5):
         most_related_chunk_idx = -1
         max_related_score = 0
         most_related_chunk_len = 0
         question_words = question_tokens['cws']
+        chunk_score = dict()
         for p_idx, chunk_tokens in enumerate(all_chunk_tokens):
             chunk_words = chunk_tokens['cws']
             if len(question_words) > 0:
                 related_score = self.get_relate_score(chunk_words, question_words, method=method)
             else:
                 related_score = 0
-            print(related_score)
+            chunk_score[p_idx] = related_score
+            #print(related_score)
             if related_score > max_related_score \
                     or (related_score == max_related_score \
                     and len(chunk_words) < most_related_chunk_len):
@@ -43,9 +48,11 @@ class Question2text:
                 most_related_chunk_len = len(chunk_words)
         if most_related_chunk_idx == -1:
             most_related_chunk_idx = 0
-        if with_score:
-            return most_related_chunk_idx, max_related_score
-        return all_chunk_tokens[most_related_chunk_idx]
+        sorted_chunk_score = sorted(chunk_score.items(), key=lambda f: f[1], reverse=True)
+        return [all_chunk_tokens[chunk_info[0]] for chunk_info in sorted_chunk_score[:topk]]
+        # if with_score:
+        #     return most_related_chunk_idx, max_related_score
+        # return all_chunk_tokens[most_related_chunk_idx]
 
     def get_relate_score(self, chunk_words, question_words, method='f1'):
         if method == 'f1':
