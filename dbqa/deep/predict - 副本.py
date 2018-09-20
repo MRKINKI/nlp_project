@@ -28,6 +28,12 @@ class Predict:
         with open(data_path, encoding='utf-8') as fin:
             for idx, line in enumerate(fin):
                 sample = json.loads(line.strip())
+                for qa_sample in sample['questions']:
+                    if 'bad_sample' not in qa_sample:
+                        if qa_sample['question'].strip():
+                            qa_sample['bad_sample'] = 0
+                        else:
+                            qa_sample['bad_sample'] = 1
                 prepro_samples.append(sample)
         return prepro_samples
         
@@ -96,12 +102,6 @@ class Predict:
                 q['score_matrix'] = score_matrices[pred_idx]
             else:
                 q['pred'], q['pred_score'], q['score_matrix'] = '', 0, []
-            # if q['bad_sample'] == 0:
-            #     pred_idx = idx - bad_sample_num
-            #     q['pred'], q['pred_score'] = predictions[pred_idx], float(scores[pred_idx])
-            # else:
-            #     q['pred'], q['pred_score'] = '', 0
-            #     bad_sample_num += 1
 
     def clear(self, sample):
         for qa_sample in sample['questions']:
@@ -129,6 +129,9 @@ class Predict:
             #     os.makedirs(sub_output_path)
 
             for jdx, sample in enumerate(self.data_set):
+                if jdx < 13000:
+                    continue
+
                 if sample['questions']:
                     self.predict(sample, find_question_match=find_question_match)
                 # score_sample = copy.copy(sample)
@@ -139,7 +142,11 @@ class Predict:
                     # output_file = os.path.join(sub_output_path, str(int((jdx+1) / 1000)))
                     output_file = os.path.join(output_path, str(int((jdx+1) / 1000)))
                     if os.path.exists(output_file):
-                        pass
+                        history_data = pickle.load(open(output_file, 'rb'))
+                        for hdx, sample in enumerate(history_data):
+                            for hjdx, qa_sample in enumerate(sample['questions']):
+                                self.data_set[jdx - 999 + hdx]['questions'][hjdx]['score_matrix'] += qa_sample['score_matrix']
+                        del history_data
 
                     pickle.dump(self.data_set[jdx-999: jdx+1], open(output_file, 'wb'))
                     # msgpack.dump(self.data_set[jdx-999: jdx+1], open(output_file, 'wb'))
@@ -152,17 +159,8 @@ class Predict:
         all_data = []
         for i in range(1, sample_num+1):
             print(i)
-            data = 0
-            for adr in os.listdir(ensemble_path):
-                sub_ensemble = os.path.join(ensemble_path, adr)
-                if data == 0:
-                    data = pickle.load(open(os.path.join(sub_ensemble, str(i)), 'rb'))
-                else:
-                    sub_data = pickle.load(open(os.path.join(sub_ensemble, str(i)), 'rb'))
-                    for idx in range(len(sub_data)):
-                        qa_samples = sub_data[idx]['questions']
-                        for j, qa_sample in enumerate(qa_samples):
-                            data[idx]['questions'][j]['score_matrix'] += qa_sample['score_matrix']
+
+            data = pickle.load(open(os.path.join(ensemble_path, str(i)), 'rb'))
 
             for sdx, sample in enumerate(data):
                 qa_samples = sample['questions']
@@ -177,6 +175,7 @@ class Predict:
                     score = np.max(score_matrix)
                     prediction = ''.join(text[s_idx:e_idx + 1])
                     del qa_sample['score_matrix']
+                    qa_sample['pred_answer_span'] = [str(s_idx), str(e_idx)]
                     qa_sample['pred'] = prediction
                     qa_sample['score'] = str(score)
             all_data.extend(data)
@@ -228,9 +227,9 @@ class Predict:
                 print(idx)
         json.dump(result, open(output_path, 'w', encoding='utf-8'))
         
-    def get_format_json(self):
+    def get_format_json(self, output_path):
         result = []
-        samples = json.load(open(self.output_path, encoding='utf-8'))
+        samples = json.load(open(output_path, encoding='utf-8'))
         for sample in samples:
             for q in sample['questions']:
                 result.append({'true_answer': q['answer'], 

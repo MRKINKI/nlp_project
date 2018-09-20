@@ -12,6 +12,8 @@ import pickle
 import numpy as np
 import msgpack
 import copy
+import math
+from rule.main import Rule
 
 
 class Predict:
@@ -22,6 +24,7 @@ class Predict:
         self.feature_extract = FeatureExtract()
         self.qt = Question2text()
         self.model = model
+        self.ru = Rule()
 
     def load_data(self, data_path):
         prepro_samples = []
@@ -29,10 +32,11 @@ class Predict:
             for idx, line in enumerate(fin):
                 sample = json.loads(line.strip())
                 for qa_sample in sample['questions']:
-                    if qa_sample['question'].strip():
-                        qa_sample['bad_sample'] = 0
-                    else:
-                        qa_sample['bad_sample'] = 1
+                    if 'bad_sample' not in qa_sample:
+                        if qa_sample['question'].strip():
+                            qa_sample['bad_sample'] = 0
+                        else:
+                            qa_sample['bad_sample'] = 1
                 prepro_samples.append(sample)
         return prepro_samples
         
@@ -57,11 +61,23 @@ class Predict:
         sample['context_ner_ids'] = self.vocab.ner_vocab.convert_to_ids(sample['context_ner'])
         sample['context_pos_ids'] = self.vocab.pos_vocab.convert_to_ids(sample['context_pos'])
         return sample
-        
+
+    def cut_mrc(self, mrc):
+        cut_mrcs = []
+        # cut_mrcs = [mrc]
+        num = math.ceil(len(mrc['cws']) / 1000)
+        for i in range(num):
+            sub_mrc = {'cws': mrc['cws'][1000*i: 1000*(i+1)],
+                       'pos': mrc['pos'][1000*i: 1000*(i+1)],
+                       'ner': mrc['ner'][1000*i: 1000*(i+1)]}
+            cut_mrcs.append(sub_mrc)
+        return cut_mrcs
+
     def get_batch(self, sample, method, topk, find_question_match):
         batch = []
         chunks_tokens = sample['paragraphs_tokens']
         q_ids = []
+        all_mrcs = []
         for q in sample['questions']:
             if q['bad_sample'] == 0:
                 q_id = q['questions_id']
@@ -71,21 +87,39 @@ class Predict:
                 else:
                     mrcs = [q['most_related_para']]
                 for mrc in mrcs:
-                    q['most_related_para'] = mrc
-                    qa_sample_feature = self.feature_extract.extract(q, predict=True)
-                    input_sample = self.convert_to_ids(qa_sample_feature)
-                    q_ids.append(q_id)
-                    batch.append(input_sample)
+                    cut_mrcs = self.cut_mrc(mrc)
+                    for cut_mrc in cut_mrcs:
+                        q['most_related_para'] = cut_mrc
+                        qa_sample_feature = self.feature_extract.extract(q, predict=True)
+                        input_sample = self.convert_to_ids(qa_sample_feature)
+                        q_ids.append(q_id)
+                        batch.append(input_sample)
+                        all_mrcs.append(cut_mrc)
             else:
                 print(q)
-        return batch, q_ids
+        return batch, q_ids, all_mrcs
 
-    def predict(self, sample, method='align', topk=1, find_question_match=True):
-        batch, q_ids = self.get_batch(sample, method, topk=topk, find_question_match=find_question_match)
-        predictions, scores, score_matrices = self.model.predict(batch)
-        # assert len(predictions) == len([sam for sam in sample['questions'] if sam['bad_sample'] == 0]), \
-        #     'HAS UNANSWERED SAMPLE'
-        bad_sample_num = 0
+    def get_lit_pro_batch(self, sample, method, topk, alpha):
+        batch = []
+        chunks_tokens = sample['paragraphs_tokens']
+        q_ids = []
+        all_mrcs = []
+        for q in sample['questions']:
+            if q['bad_sample'] == 0:
+                if q['pred_score'] < alpha:
+                    q_id = q['questions_id']
+                    q_tokens = q['question_tokens']
+                    mrcs = self.qt.find_best_question_match(chunks_tokens, q_tokens, method=method, topk=topk)
+                    for mrc in mrcs:
+                        q['most_related_para'] = mrc
+                        qa_sample_feature = self.feature_extract.extract(q, predict=True)
+                        input_sample = self.convert_to_ids(qa_sample_feature)
+                        q_ids.append(q_id)
+                        batch.append(input_sample)
+                        all_mrcs.append(mrc)
+        return batch, q_ids, all_mrcs
+
+    def write2sample(self, predictions, scores, score_matrices, q_ids, sample, all_mrcs):
         pred2id = dict()
         for pred_idx, q_id in enumerate(q_ids):
             if q_id not in pred2id:
@@ -98,15 +132,22 @@ class Predict:
             if q_id in pred2id:
                 pred_idx = pred2id[q_id]
                 q['pred'], q['pred_score'] = predictions[pred_idx], float(scores[pred_idx])
-                q['score_matrix'] = score_matrices[pred_idx]
-            else:
+                s_matrix = score_matrices[pred_idx]
+                a_mrc = all_mrcs[pred_idx]
+                mrc_len = len(a_mrc['cws'])
+                q['score_matrix'] = s_matrix[:mrc_len, :mrc_len]
+                q['most_related_para'] = a_mrc
+            elif 'pred' not in q:
                 q['pred'], q['pred_score'], q['score_matrix'] = '', 0, []
-            # if q['bad_sample'] == 0:
-            #     pred_idx = idx - bad_sample_num
-            #     q['pred'], q['pred_score'] = predictions[pred_idx], float(scores[pred_idx])
-            # else:
-            #     q['pred'], q['pred_score'] = '', 0
-            #     bad_sample_num += 1
+
+    def predict(self, sample, method='align', topk=1, find_question_match=True):
+        batch, q_ids, all_mrcs = self.get_batch(sample, method, topk=topk, find_question_match=find_question_match)
+        predictions, scores, score_matrices = self.model.predict(batch)
+        self.write2sample(predictions, scores, score_matrices, q_ids, sample, all_mrcs)
+        # batch, q_ids = self.get_lit_pro_batch(sample, method, topk=5, alpha=0.1)
+        # if batch:
+        #     predictions, scores, score_matrices = self.model.predict(batch)
+        #     self.write2sample(predictions, scores, score_matrices, q_ids, sample)
 
     def clear(self, sample):
         for qa_sample in sample['questions']:
@@ -134,7 +175,7 @@ class Predict:
             #     os.makedirs(sub_output_path)
 
             for jdx, sample in enumerate(self.data_set):
-                # if jdx < 14000:
+                # if jdx < 13000:
                 #     continue
 
                 if sample['questions']:
@@ -173,6 +214,7 @@ class Predict:
                     if qa_sample['bad_sample']:
                         qa_sample['pred'] = ''
                         continue
+                    # del qa_sample['score_matrix']
                     score_matrix = qa_sample['score_matrix']
                     # print(score_matrix)
                     text = qa_sample['most_related_para']['cws']
@@ -180,6 +222,7 @@ class Predict:
                     score = np.max(score_matrix)
                     prediction = ''.join(text[s_idx:e_idx + 1])
                     del qa_sample['score_matrix']
+                    qa_sample['pred_answer_span'] = [str(s_idx), str(e_idx)]
                     qa_sample['pred'] = prediction
                     qa_sample['score'] = str(score)
             all_data.extend(data)
@@ -189,6 +232,7 @@ class Predict:
         data = json.load(open(inputfile, encoding='utf-8'))
         formal_result = []
         for idx, sample in enumerate(data):
+            self.ru.run(sample)
             result = collections.OrderedDict()
             result['article_id'] = sample['article_id']
             result['questions'] = []
